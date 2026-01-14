@@ -1,0 +1,335 @@
+<?php
+
+namespace App\Models;
+
+use CodeIgniter\Model;
+
+/**
+ * Model: Program Kerja
+ * 
+ * Model untuk mengelola data Program Kerja Pengawasan Tahunan (PKPT)
+ * Menyediakan fungsi CRUD dan validasi data
+ * 
+ * @author  PKPT Development Team
+ * @created 2026-01-08
+ */
+class ProgramKerjaModel extends Model
+{
+    protected $table            = 'program_kerja';
+    protected $primaryKey       = 'id';
+    protected $useAutoIncrement = true;
+    protected $returnType       = 'array';
+    protected $useSoftDeletes   = false;
+    protected $protectFields    = true;
+    
+    // Field yang boleh diisi
+    protected $allowedFields    = [
+        'tahun',
+        'nama_kegiatan',
+        'tanggal_mulai',
+        'tanggal_selesai',
+        'unit_kerja',
+        'rencana_kegiatan',
+        'anggaran',
+        'realisasi_kegiatan',
+        'pelaksana',
+        'dokumen_output',
+        'realisasi_anggaran',
+        'sasaran_strategis',
+        'status'
+    ];
+
+    // Dates
+    protected $useTimestamps = true;
+    protected $dateFormat    = 'datetime';
+    protected $createdField  = 'created_at';
+    protected $updatedField  = 'updated_at';
+
+    // Validation rules
+    protected $validationRules = [
+        'tahun' => [
+            'rules'  => 'required|integer|min_length[4]|max_length[4]',
+            'errors' => [
+                'required'   => 'Tahun harus diisi',
+                'integer'    => 'Tahun harus berupa angka',
+                'min_length' => 'Tahun harus 4 digit',
+                'max_length' => 'Tahun harus 4 digit'
+            ]
+        ],
+        'nama_kegiatan' => [
+            'rules'  => 'required|max_length[500]',
+            'errors' => [
+                'required'   => 'Nama kegiatan harus diisi',
+                'max_length' => 'Nama kegiatan maksimal 500 karakter'
+            ]
+        ],
+        'anggaran' => [
+            'rules'  => 'required|decimal|greater_than_equal_to[0]',
+            'errors' => [
+                'required'              => 'Anggaran harus diisi',
+                'decimal'               => 'Anggaran harus berupa angka',
+                'greater_than_equal_to' => 'Anggaran tidak boleh negatif'
+            ]
+        ],
+        'realisasi_anggaran' => [
+            'rules'  => 'permit_empty|decimal|greater_than_equal_to[0]',
+            'errors' => [
+                'decimal'               => 'Realisasi anggaran harus berupa angka',
+                'greater_than_equal_to' => 'Realisasi anggaran tidak boleh negatif'
+            ]
+        ],
+        'status' => [
+            'rules'  => 'permit_empty|in_list[Terlaksana,Tidak Terlaksana,Penugasan Tambahan]',
+            'errors' => [
+                'in_list' => 'Status harus salah satu dari: Terlaksana, Tidak Terlaksana, atau Penugasan Tambahan'
+            ]
+        ]
+    ];
+
+    protected $validationMessages   = [];
+    protected $skipValidation       = false;
+    protected $cleanValidationRules = true;
+
+    // Callbacks
+    protected $allowCallbacks = true;
+    protected $beforeInsert   = [];
+    protected $afterInsert    = [];
+    protected $beforeUpdate   = [];
+    protected $afterUpdate    = [];
+    protected $beforeFind     = [];
+    protected $afterFind      = [];
+    protected $beforeDelete   = [];
+    protected $afterDelete    = [];
+
+    /**
+     * Ambil semua data program kerja dengan pagination
+     * 
+     * @param int $perPage Jumlah data per halaman
+     * @return array
+     */
+    public function ambilSemuaData($perPage = 10)
+    {
+        return $this->orderBy('created_at', 'DESC')->paginate($perPage);
+    }
+
+    /**
+     * Cari program kerja berdasarkan keyword
+     * 
+     * @param string $keyword Kata kunci pencarian
+     * @param int $perPage Jumlah data per halaman
+     * @return array
+     */
+    public function cariProgramKerja($keyword, $perPage = 10)
+    {
+        return $this->like('nama_kegiatan', $keyword)
+                    ->orLike('pelaksana', $keyword)
+                    ->orLike('unit_kerja', $keyword)
+                    ->orLike('status', $keyword)
+                    ->orderBy('created_at', 'DESC')
+                    ->paginate($perPage);
+    }
+
+    /**
+     * Ambil data program kerja berdasarkan ID
+     * 
+     * @param int $id ID program kerja
+     * @return array|null
+     */
+    public function ambilDataById($id)
+    {
+        return $this->find($id);
+    }
+
+    /**
+     * Hitung total anggaran semua program
+     * 
+     * @return float
+     */
+    public function hitungTotalAnggaran()
+    {
+        $result = $this->selectSum('anggaran')->first();
+        return $result['anggaran'] ?? 0;
+    }
+
+    /**
+     * Hitung total realisasi anggaran
+     * 
+     * @return float
+     */
+    public function hitungTotalRealisasi()
+    {
+        $result = $this->selectSum('realisasi_anggaran')->first();
+        return $result['realisasi_anggaran'] ?? 0;
+    }
+
+    /**
+     * Hitung jumlah program kerja
+     * 
+     * @return int
+     */
+    public function hitungJumlahProgram()
+    {
+        return $this->countAllResults();
+    }
+
+    /**
+     * Ambil statistik dashboard
+     * 
+     * @return array
+     */
+    public function ambilStatistik()
+    {
+        return [
+            'total_program'          => $this->hitungJumlahProgram(),
+            'total_anggaran'         => $this->hitungTotalAnggaran(),
+            'total_realisasi'        => $this->hitungTotalRealisasi(),
+            'persentase_realisasi'   => $this->hitungPersentaseRealisasi()
+        ];
+    }
+
+    /**
+     * Hitung persentase realisasi anggaran
+     * 
+     * @return float
+     */
+    private function hitungPersentaseRealisasi()
+    {
+        $totalAnggaran = $this->hitungTotalAnggaran();
+        $totalRealisasi = $this->hitungTotalRealisasi();
+        
+        if ($totalAnggaran > 0) {
+            return round(($totalRealisasi / $totalAnggaran) * 100, 2);
+        }
+        
+        return 0;
+    }
+
+    /**
+     * Ambil kegiatan berdasarkan bulan untuk kalender
+     * 
+     * @param int $year Tahun
+     * @param int $month Bulan
+     * @return array
+     */
+    public function getActivitiesByMonth($year, $month)
+    {
+        $startDate = sprintf('%04d-%02d-01', $year, $month);
+        $endDate = date('Y-m-t', strtotime($startDate));
+        
+        return $this->where('tanggal_mulai >=', $startDate)
+                    ->where('tanggal_mulai <=', $endDate)
+                    ->orWhere('tanggal_selesai >=', $startDate)
+                    ->where('tanggal_selesai <=', $endDate)
+                    ->findAll();
+    }
+
+    /**
+     * Ambil distribusi status untuk pie chart
+     * 
+     * @return array
+     */
+    public function getStatusDistribution()
+    {
+        $result = $this->select('status, COUNT(*) as count')
+                       ->groupBy('status')
+                       ->findAll();
+        
+        $distribution = [
+            'labels' => [],
+            'data' => []
+        ];
+        
+        foreach ($result as $row) {
+            $distribution['labels'][] = $row['status'] ?: 'Belum Ditentukan';
+            $distribution['data'][] = (int)$row['count'];
+        }
+        
+        return $distribution;
+    }
+
+    /**
+     * Ambil tren bulanan untuk line chart
+     * 
+     * @param int $year Tahun
+     * @return array
+     */
+    public function getMonthlyTrend($year)
+    {
+        $months = [];
+        $anggaran = [];
+        $realisasi = [];
+        
+        for ($i = 1; $i <= 12; $i++) {
+            $months[] = date('M', mktime(0, 0, 0, $i, 1));
+            
+            $startDate = sprintf('%04d-%02d-01', $year, $i);
+            $endDate = date('Y-m-t', strtotime($startDate));
+            
+            // Total anggaran bulan ini
+            $budgetResult = $this->selectSum('anggaran')
+                                 ->where('tanggal_mulai >=', $startDate)
+                                 ->where('tanggal_mulai <=', $endDate)
+                                 ->first();
+            $anggaran[] = $budgetResult['anggaran'] ?? 0;
+            
+            // Total realisasi bulan ini
+            $realizationResult = $this->selectSum('realisasi_anggaran')
+                                      ->where('tanggal_mulai >=', $startDate)
+                                      ->where('tanggal_mulai <=', $endDate)
+                                      ->first();
+            $realisasi[] = $realizationResult['realisasi_anggaran'] ?? 0;
+        }
+        
+        return [
+            'labels' => $months,
+            'anggaran' => $anggaran,
+            'realisasi' => $realisasi
+        ];
+    }
+
+    /**
+     * Ambil kegiatan yang akan datang
+     * 
+     * @param int $limit Jumlah data
+     * @return array
+     */
+    public function getUpcomingActivities($limit = 5)
+    {
+        $today = date('Y-m-d');
+        
+        return $this->where('tanggal_mulai >=', $today)
+                    ->orderBy('tanggal_mulai', 'ASC')
+                    ->limit($limit)
+                    ->findAll();
+    }
+
+    /**
+     * Ambil perbandingan anggaran vs realisasi
+     * 
+     * @return array
+     */
+    public function getBudgetComparison()
+    {
+        $statuses = ['Terlaksana', 'Tidak Terlaksana', 'Penugasan Tambahan'];
+        $anggaran = [];
+        $realisasi = [];
+        
+        foreach ($statuses as $status) {
+            $budgetResult = $this->selectSum('anggaran')
+                                 ->where('status', $status)
+                                 ->first();
+            $anggaran[] = $budgetResult['anggaran'] ?? 0;
+            
+            $realizationResult = $this->selectSum('realisasi_anggaran')
+                                      ->where('status', $status)
+                                      ->first();
+            $realisasi[] = $realizationResult['realisasi_anggaran'] ?? 0;
+        }
+        
+        return [
+            'labels' => $statuses,
+            'anggaran' => $anggaran,
+            'realisasi' => $realisasi
+        ];
+    }
+}
