@@ -105,28 +105,63 @@ class ProgramKerjaModel extends Model
      * Ambil semua data program kerja dengan pagination
      * 
      * @param int $perPage Jumlah data per halaman
+     * @param int|null $tahun Filter tahun
      * @return array
      */
-    public function ambilSemuaData($perPage = 10)
+    public function ambilSemuaData($perPage = 10, $tahun = null)
     {
-        return $this->orderBy('created_at', 'DESC')->paginate($perPage);
+        $query = $this->orderBy('created_at', 'DESC');
+        
+        if ($tahun) {
+            $query->where('tahun', $tahun);
+        }
+        
+        return $query->paginate($perPage);
     }
 
     /**
-     * Cari program kerja berdasarkan keyword
+     * Cari program kerja berdasarkan keyword dan tahun
      * 
      * @param string $keyword Kata kunci pencarian
      * @param int $perPage Jumlah data per halaman
+     * @param int|null $tahun Filter tahun
      * @return array
      */
-    public function cariProgramKerja($keyword, $perPage = 10)
+    public function cariProgramKerja($keyword, $perPage = 10, $tahun = null)
     {
-        return $this->like('nama_kegiatan', $keyword)
-                    ->orLike('pelaksana', $keyword)
-                    ->orLike('unit_kerja', $keyword)
-                    ->orLike('status', $keyword)
-                    ->orderBy('created_at', 'DESC')
-                    ->paginate($perPage);
+        $query = $this->groupStart()
+                        ->like('nama_kegiatan', $keyword)
+                        ->orLike('pelaksana', $keyword)
+                        ->orLike('unit_kerja', $keyword)
+                        ->orLike('status', $keyword)
+                      ->groupEnd();
+
+        if ($tahun) {
+            $query->where('tahun', $tahun);
+        }
+
+        return $query->orderBy('created_at', 'DESC')
+                     ->paginate($perPage);
+    }
+
+    /**
+     * Ambil daftar tahun yang tersedia di database
+     * 
+     * @return array
+     */
+    public function getYears()
+    {
+        $result = $this->select('tahun')
+                       ->distinct()
+                       ->orderBy('tahun', 'DESC')
+                       ->findAll();
+        
+        $years = [];
+        foreach ($result as $row) {
+            $years[] = $row['tahun'];
+        }
+        
+        return $years;
     }
 
     /**

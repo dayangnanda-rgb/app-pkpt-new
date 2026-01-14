@@ -34,10 +34,24 @@
                 type="text" 
                 name="cari" 
                 class="search-input-full" 
-                placeholder="Cari nama kegiatan, pelaksana, atau keterangan..."
+                placeholder="Cari nama kegiatan..."
                 value="<?= esc($keyword ?? '') ?>"
             >
         </div>
+
+        <div class="filter-group">
+            <select name="tahun" class="filter-select" onchange="this.form.submit()">
+                <option value="">Semua Tahun</option>
+                <?php if (!empty($available_years)): ?>
+                    <?php foreach ($available_years as $y): ?>
+                        <option value="<?= $y ?>" <?= (isset($tahun_pilih) && $tahun_pilih == $y) ? 'selected' : '' ?>>
+                            Tahun <?= $y ?>
+                        </option>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </select>
+        </div>
+
         <button type="submit" class="btn btn-secondary">Cari</button>
     </form>
     

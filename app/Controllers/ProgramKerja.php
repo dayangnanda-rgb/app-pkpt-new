@@ -67,17 +67,23 @@ class ProgramKerja extends BaseController
     public function index()
     {
         $keyword = $this->request->getGet('cari');
+        $tahun = $this->request->getGet('tahun');
         $perPage = 10;
 
-        // Jika ada keyword pencarian
-        if ($keyword) {
-            $data['program_kerja'] = $this->programKerjaModel->cariProgramKerja($keyword, $perPage);
+        // Ambil daftar tahun available untuk dropdown
+        $availableYears = $this->programKerjaModel->getYears();
+
+        // Jika ada keyword pencarian atau filter tahun
+        if ($keyword || $tahun) {
+            $data['program_kerja'] = $this->programKerjaModel->cariProgramKerja($keyword, $perPage, $tahun);
         } else {
             $data['program_kerja'] = $this->programKerjaModel->ambilSemuaData($perPage);
         }
 
         $data['pager'] = $this->programKerjaModel->pager;
         $data['keyword'] = $keyword;
+        $data['tahun_pilih'] = $tahun;
+        $data['available_years'] = $availableYears;
         $data['judul'] = 'Program Kerja Pengawasan Tahunan (PKPT)';
 
         return view('program_kerja/daftar', $data);

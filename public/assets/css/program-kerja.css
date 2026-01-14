@@ -382,7 +382,33 @@ html {
   flex: 1;
   display: flex;
   gap: var(--spacing-sm);
-  max-width: 600px;
+  max-width: 800px;
+  /* Increased to accommodate filter */
+}
+
+.filter-group {
+  flex: 0 0 160px;
+}
+
+.filter-select {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  height: 42px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-weight: 500;
+}
+
+.filter-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(26, 26, 46, 0.1);
+  outline: none;
+  background: #fff;
 }
 
 .search-input-group {
