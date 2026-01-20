@@ -172,7 +172,7 @@ function createStatusChart(data) {
                     const l = label.toLowerCase();
                     if (l.includes('terlaksana') && !l.includes('tidak')) return '#10b981'; // Green
                     if (l.includes('tidak terlaksana')) return '#ef4444'; // Red
-                    if (l.includes('penugasan')) return '#1a1a2e'; // Dark Navy
+                    if (l.includes('penugasan')) return '#FAC70B'; // Yellow/Gold
                     return '#94a3b8'; // Default gray
                 }),
                 borderWidth: 0,

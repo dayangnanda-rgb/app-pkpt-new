@@ -760,10 +760,11 @@ html {
   border: 1px solid var(--danger);
 }
 
-.badge-penugasan-tambahan {
-  background: #fff3e0;
-  color: var(--warning);
-  border: 1px solid var(--warning);
+.badge-penugasan-tambahan,
+.badge-penambahan-penugasan {
+  background: #FAC70B;
+  color: #1a1a2e;
+  border: 1px solid #d4a007;
 }
 
 /* ===== EMPTY STATE ===== */

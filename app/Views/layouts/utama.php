@@ -50,6 +50,7 @@
                         <i class="fas fa-tasks"></i> Program Kerja
                     </a>
                 </li>
+                <?= view_cell('App\Cells\NotificationCell::show') ?>
             </ul>
         </div>
     </nav>
@@ -61,12 +62,29 @@
         </div>
     </main>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <p>&copy; <?= date('Y') ?> - Kementerian Koordinator Bidang Pembangunan Manusia dan Kebudayaan Republik Indonesia.</p>
+    <!-- Announcement Modal -->
+    <div id="announcementModal" class="modal-overlay">
+        <div class="modal-content-wrapper">
+            <div class="modal-header-announcement">
+                <i class="fas fa-bullhorn animated-bell"></i>
+                <h2>Pengumuman Penting!</h2>
+            </div>
+            <div class="modal-body-announcement text-center">
+                <p>Selamat datang di Aplikasi PKPT.</p>
+                <p>Terdapat beberapa kegiatan yang akan segera dilaksanakan dalam waktu dekat. 
+                   Mohon untuk mengecek kembali kesiapan data dan rencana kegiatannya.</p>
+                
+                <div class="announcement-action">
+                    <a href="<?= base_url('program-kerja') ?>" class="btn-check-data">
+                        <i class="fas fa-arrow-right"></i> Cek Data Program Kerja
+                    </a>
+                </div>
+            </div>
+            <div class="modal-footer-announcement">
+                <button id="closeAnnouncement" class="btn-close-announcement">Saya Mengerti</button>
+            </div>
         </div>
-    </footer>
+    </div>
 
     <!-- JavaScript -->
     <script src="<?= base_url('assets/js/program-kerja.js') ?>"></script>

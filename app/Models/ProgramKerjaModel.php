@@ -367,4 +367,47 @@ class ProgramKerjaModel extends Model
             'realisasi' => $realisasi
         ];
     }
+
+    /**
+     * Ambil kegiatan untuk notifikasi
+     * - Kegiatan yang akan mulai dalam 7 hari
+     * - Kegiatan yang sudah selesai tapi butuh pembaruan data (realisasi)
+     * 
+     * @return array
+     */
+    public function getNotificationActivities()
+    {
+        $today = date('Y-m-d');
+        $sevenDaysLater = date('Y-m-d', strtotime('+7 days'));
+
+        // 1. Upcoming within 7 days
+        $upcoming = $this->where('tanggal_mulai >=', $today)
+                         ->where('tanggal_mulai <=', $sevenDaysLater)
+                         ->where('status !=', 'Terlaksana')
+                         ->findAll();
+
+        // 2. Needs modification (finished but no realization/status incomplete)
+        // This is a simplified logic: if today > tanggal_selesai and status is not 'Terlaksana'
+        $needsUpdate = $this->where('tanggal_selesai <', $today)
+                            ->where('status !=', 'Terlaksana')
+                            ->findAll();
+
+        // Merge and tag them
+        $notifications = [];
+        foreach ($upcoming as $item) {
+            $item['notif_type'] = 'upcoming';
+            $notifications[] = $item;
+        }
+        foreach ($needsUpdate as $item) {
+            $item['notif_type'] = 'needs_update';
+            $notifications[] = $item;
+        }
+
+        // Sort by ID descending (newest first)
+        usort($notifications, function($a, $b) {
+            return $b['id'] - $a['id'];
+        });
+
+        return $notifications;
+    }
 }

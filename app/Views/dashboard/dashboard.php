@@ -103,7 +103,7 @@
     <div class="card-body">
         <div class="upcoming-list">
             <?php foreach ($upcoming as $activity): ?>
-                <div class="upcoming-item">
+                <div class="upcoming-item status-<?= strtolower(str_replace(' ', '-', $activity['status'])) ?>">
                     <div class="upcoming-date">
                         <span class="day"><?= date('d', strtotime($activity['tanggal_mulai'])) ?></span>
                         <span class="month"><?= date('M', strtotime($activity['tanggal_mulai'])) ?></span>
