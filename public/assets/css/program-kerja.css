@@ -50,7 +50,7 @@
   --spacing-2xl: 1.5rem;
 
   /* Typography - Readable */
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family: Arial, Helvetica, sans-serif;
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
@@ -107,29 +107,33 @@ body {
 }
 
 .logo-image {
-  width: 48px;
-  height: 48px;
+  width: 75px;
+  height: 75px;
   object-fit: contain;
 }
 
 .logo-text-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 2px;
 }
 
+
 .logo-title {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 700;
   margin: 0;
-  line-height: 1.2;
+  line-height: 1.1;
+  text-transform: uppercase;
 }
 
 .logo-subtitle {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   opacity: 0.9;
   margin: 0;
-  line-height: 1.3;
+  line-height: 1.1;
+  text-transform: uppercase;
+  font-weight: 600;
 }
 
 .header-info {
@@ -200,17 +204,19 @@ html {
 
 /* ===== CONTAINER ===== */
 .container {
-  max-width: 1400px;
+  max-width: 1600px;
+  /* widened further to 1600px to prevent content truncation */
   margin: 0 auto;
-  padding: 0 var(--spacing-xl);
-  /* Standardized padding */
+  padding: 0 15px;
+  /* minimal side padding to bring it closer to the margins */
   width: 100%;
 }
 
 /* ===== MAIN CONTENT ===== */
 .main-content {
   flex: 1;
-  padding: var(--spacing-xl) 0;
+  padding: var(--spacing-xl) 0 0;
+  /* Reduced bottom padding */
 }
 
 /* ===== PAGE HEADER ===== */
@@ -1099,6 +1105,17 @@ html {
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
+  .footer-branding .logo-section {
+    flex-direction: row;
+    text-align: left;
+    align-items: center;
+  }
+
+  .footer-description {
+    text-align: left;
+    margin: 15px 0 0;
+  }
+
   .logo-section {
     flex-direction: column;
     align-items: flex-start;
@@ -1556,4 +1573,52 @@ html {
 
 .btn-outline-primary:hover {
   background: var(--bg-tertiary);
+}
+
+/* ===== PAGINATION ===== */
+.pagination-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm) 0;
+}
+
+.pagination-info {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.pagination {
+  display: flex;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.pagination li a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  text-decoration: none;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.pagination li.active a {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.pagination li a:hover:not(.active a) {
+  background: var(--bg-tertiary);
+  border-color: var(--primary);
 }

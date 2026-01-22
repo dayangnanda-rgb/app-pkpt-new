@@ -418,6 +418,7 @@ canvas {
 /* Notification Styles */
 .notification-dropdown {
     position: relative;
+    margin-left: auto;
 }
 
 .notification-badge {

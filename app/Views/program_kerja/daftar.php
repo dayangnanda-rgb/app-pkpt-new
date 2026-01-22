@@ -155,8 +155,13 @@
 
 <!-- Pagination -->
 <?php if (!empty($program_kerja)): ?>
-    <div class="pagination-container">
-        <?= $pager->links() ?>
+    <div class="pagination-wrapper">
+        <div class="pagination-info">
+            Menampilkan <?= count($program_kerja) ?> dari <?= $pager->getTotal() ?>
+        </div>
+        <div class="pagination-container">
+            <?= $pager->links('default', 'bootstrap_full') ?>
+        </div>
     </div>
 <?php endif; ?>
 
