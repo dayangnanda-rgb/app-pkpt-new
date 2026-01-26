@@ -47,6 +47,11 @@
                     </a>
                 </li>
                 <?= view_cell('App\Cells\NotificationCell::show') ?>
+                <li class="nav-item">
+                    <a href="<?= base_url('/logout') ?>" class="nav-link">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </a>
+                </li>
             </ul>
         </div>
     </nav>
