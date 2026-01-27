@@ -141,15 +141,25 @@ class ProgramKerja extends BaseController
             // Handle multi-upload dokumen
             $files = $this->request->getFiles();
             if ($files && isset($files['dokumen'])) {
-                foreach ($files['dokumen'] as $file) {
+                $tipeDokumenInput = $this->request->getPost('tipe_dokumen');
+                
+                foreach ($files['dokumen'] as $idx => $file) {
                     if ($file->isValid() && !$file->hasMoved()) {
                         $namaFile = $file->getRandomName();
                         $file->move(WRITEPATH . 'uploads/dokumen_output', $namaFile);
                         
+                        // Determine type: if array use index, else use single value
+                        $tipe = 'Lampiran';
+                        if (is_array($tipeDokumenInput) && isset($tipeDokumenInput[$idx])) {
+                            $tipe = $tipeDokumenInput[$idx];
+                        } elseif (is_string($tipeDokumenInput) && !empty($tipeDokumenInput)) {
+                            $tipe = $tipeDokumenInput;
+                        }
+
                         $this->dokumenModel->insert([
                             'program_kerja_id' => $newId,
                             'nama_file'        => $namaFile,
-                            'tipe_dokumen'     => 'Lampiran' // Default type
+                            'tipe_dokumen'     => $tipe
                         ]);
                     }
                 }
@@ -298,18 +308,21 @@ class ProgramKerja extends BaseController
      */
     public function unduhDokumen($id)
     {
-        $programKerja = $this->programKerjaModel->ambilDataById($id);
+        // Cari dokumen terbaru dari tabel referensi (ambil yang paling akhir diupload)
+        $dokumen = $this->dokumenModel->where('program_kerja_id', $id)
+                                    ->orderBy('created_at', 'DESC')
+                                    ->first();
 
-        if (!$programKerja || empty($programKerja['dokumen_output'])) {
+        if (!$dokumen) {
             return redirect()->to('/program-kerja')
                            ->with('gagal', 'Dokumen tidak ditemukan');
         }
 
-        $filePath = WRITEPATH . 'uploads/dokumen_output/' . $programKerja['dokumen_output'];
+        $filePath = WRITEPATH . 'uploads/dokumen_output/' . $dokumen['nama_file'];
 
         if (!file_exists($filePath)) {
             return redirect()->to('/program-kerja')
-                           ->with('gagal', 'File dokumen tidak ditemukan');
+                           ->with('gagal', 'File dokumen tidak ditemukan di server');
         }
 
         return $this->response->download($filePath, null);
