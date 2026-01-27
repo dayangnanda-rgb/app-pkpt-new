@@ -100,9 +100,9 @@ function renderCalendar(events) {
 
         // Find events for this day
         const dayEvents = events.filter(event => {
-            const eventStart = new Date(event.start);
-            const eventEnd = new Date(event.end);
-            return currentDate >= eventStart && currentDate <= eventEnd;
+            const eventStart = event.start.split(' ')[0];
+            const eventEnd = event.end.split(' ')[0];
+            return dateString >= eventStart && dateString <= eventEnd;
         });
 
         calendarHtml += `<td>

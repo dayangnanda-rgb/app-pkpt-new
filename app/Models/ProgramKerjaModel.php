@@ -251,10 +251,11 @@ class ProgramKerjaModel extends Model
         $startDate = sprintf('%04d-%02d-01', $year, $month);
         $endDate = date('Y-m-t', strtotime($startDate));
         
-        return $this->where('tanggal_mulai >=', $startDate)
-                    ->where('tanggal_mulai <=', $endDate)
-                    ->orWhere('tanggal_selesai >=', $startDate)
-                    ->where('tanggal_selesai <=', $endDate)
+        // Query to get all events that overlap with the current month
+        return $this->groupStart()
+                        ->where('tanggal_mulai <=', $endDate)
+                        ->where('tanggal_selesai >=', $startDate)
+                    ->groupEnd()
                     ->findAll();
     }
 
