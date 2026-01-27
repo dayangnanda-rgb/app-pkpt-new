@@ -110,7 +110,17 @@ class ProgramKerjaModel extends Model
      */
     public function ambilSemuaData($perPage = 10, $tahun = null)
     {
-        $query = $this->orderBy('created_at', 'DESC');
+        // Subquery untuk mendapatkan dokumen terbaru
+        $subQuery = $this->db->table('program_kerja_dokumen')
+            ->select('nama_file')
+            ->where('program_kerja_id = program_kerja.id')
+            ->orderBy('created_at', 'DESC')
+            ->limit(1)
+            ->getCompiledSelect();
+
+        $query = $this->select('program_kerja.*')
+                      ->select("($subQuery) as dokumen_output")
+                      ->orderBy('created_at', 'DESC');
         
         if ($tahun) {
             $query->where('tahun', $tahun);
@@ -129,7 +139,17 @@ class ProgramKerjaModel extends Model
      */
     public function cariProgramKerja($keyword, $perPage = 10, $tahun = null)
     {
-        $query = $this->groupStart()
+        // Subquery untuk mendapatkan dokumen terbaru
+        $subQuery = $this->db->table('program_kerja_dokumen')
+            ->select('nama_file')
+            ->where('program_kerja_id = program_kerja.id')
+            ->orderBy('created_at', 'DESC')
+            ->limit(1)
+            ->getCompiledSelect();
+
+        $query = $this->select('program_kerja.*')
+                      ->select("($subQuery) as dokumen_output")
+                      ->groupStart()
                         ->like('nama_kegiatan', $keyword)
                         ->orLike('pelaksana', $keyword)
                         ->orLike('unit_kerja', $keyword)
