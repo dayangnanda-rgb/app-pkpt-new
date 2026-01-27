@@ -441,4 +441,73 @@ class ProgramKerja extends BaseController
 
         return $this->response->download($path, null); 
     }
+    /**
+     * Ekspor seluruh data program kerja ke Excel (CSV format)
+     * 
+     * @return void
+     */
+    public function exportExcel()
+    {
+        $keyword = $this->request->getGet('cari');
+        $tahun = $this->request->getGet('tahun');
+
+        // Build query based on filters
+        $query = $this->programKerjaModel->select('*');
+        
+        if ($keyword || $tahun) {
+            if ($keyword) {
+                $query->groupStart()
+                        ->like('nama_kegiatan', $keyword)
+                        ->orLike('pelaksana', $keyword)
+                        ->orLike('unit_kerja', $keyword)
+                        ->orLike('status', $keyword)
+                      ->groupEnd();
+            }
+            if ($tahun) {
+                $query->where('tahun', $tahun);
+            }
+        }
+
+        $data = $query->orderBy('created_at', 'DESC')->findAll();
+
+        // Set Headers for Download
+        $filename = 'Data_Program_Kerja_' . date('Y-m-d_His') . '.csv';
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename=' . $filename);
+
+        $output = fopen('php://output', 'w');
+        
+        // Add BOM for Excel UTF-8 compatibility
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+
+        // Header column
+        fputcsv($output, [
+            'No', 'Tahun', 'Nama Kegiatan', 'Tanggal Mulai', 'Tanggal Selesai', 
+            'Unit Kerja', 'Rencana Kegiatan', 'Anggaran', 'Realisasi Kegiatan', 
+            'Pelaksana', 'Realisasi Anggaran', 'Sasaran Strategis', 'Status'
+        ], ';'); // Using semicolon as default for many Excel regions, or stick to comma
+
+        // Data rows
+        $no = 1;
+        foreach ($data as $row) {
+            fputcsv($output, [
+                $no++,
+                $row['tahun'],
+                $row['nama_kegiatan'],
+                $row['tanggal_mulai'],
+                $row['tanggal_selesai'],
+                $row['unit_kerja'],
+                $row['rencana_kegiatan'],
+                $row['anggaran'],
+                $row['realisasi_kegiatan'],
+                $row['pelaksana'],
+                $row['realisasi_anggaran'],
+                $row['sasaran_strategis'],
+                $row['status']
+            ], ';');
+        }
+
+        fclose($output);
+        exit();
+    }
 }

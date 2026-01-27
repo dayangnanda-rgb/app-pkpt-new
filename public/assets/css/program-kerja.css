@@ -88,11 +88,9 @@ body {
 
 /* ===== HEADER ===== */
 .header {
-  background: linear-gradient(
-    135deg,
-    var(--primary) 0%,
-    var(--primary-light) 100%
-  );
+  background: linear-gradient(135deg,
+      var(--primary) 0%,
+      var(--primary-light) 100%);
   color: var(--text-white);
   padding: var(--spacing-md) 0;
   box-shadow: var(--shadow-md);
@@ -285,6 +283,17 @@ html {
 
 .btn-secondary:hover {
   background: var(--border-color);
+}
+
+.btn-success {
+  background: #10b981;
+  color: var(--text-white);
+}
+
+.btn-success:hover {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 .btn-search {
@@ -1032,11 +1041,9 @@ html {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    var(--primary) 0%,
-    var(--primary-light) 100%
-  );
+  background: linear-gradient(90deg,
+      var(--primary) 0%,
+      var(--primary-light) 100%);
   transition: width var(--transition-slow);
 }
 

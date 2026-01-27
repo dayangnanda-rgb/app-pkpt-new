@@ -36,4 +36,5 @@ $routes->group('program-kerja', function($routes) {
     $routes->post('upload-dokumen/(:num)', 'ProgramKerja::uploadDokumen/$1');
     $routes->delete('hapus-dokumen/(:num)', 'ProgramKerja::hapusDokumen/$1');
     $routes->get('download-dokumen/(:num)', 'ProgramKerja::download/$1');
+    $routes->get('export-excel', 'ProgramKerja::exportExcel');
 });

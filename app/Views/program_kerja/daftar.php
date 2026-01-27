@@ -57,8 +57,16 @@
     
     <div class="toolbar-actions">
         <a href="<?= base_url('program-kerja/tambah') ?>" class="btn btn-primary">
-            <span class="btn-icon">+</span>
+            <span class="btn-icon">
+                <i class="fas fa-plus"></i>
+            </span>
             Tambah Program
+        </a>
+        <a href="<?= base_url('program-kerja/export-excel') . '?' . http_build_query(request()->getGet()) ?>" class="btn btn-success">
+            <span class="btn-icon">
+                <i class="fas fa-file-excel"></i>
+            </span>
+            Ekspor Excel
         </a>
     </div>
 </div>
