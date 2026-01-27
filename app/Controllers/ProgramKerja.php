@@ -98,6 +98,34 @@ class ProgramKerja extends BaseController
     {
         $data['judul'] = 'Tambah Program Kerja';
         $data['aksi'] = 'tambah';
+        $data['program_kerja'] = []; 
+
+        // Autofill Logic: Get user from session
+        $userId = session()->get('user.id');
+        if ($userId) {
+            $userModel = new \App\Models\UserModel();
+            $user = $userModel->find($userId);
+            
+            // Default 1: Try from Users table (if columns manually added)
+            $defaultUnitKerja = $user['unit_kerja'] ?? ''; 
+            $defaultPelaksana = $user['nama_lengkap'] ?? $user['username_ldap'];
+
+            // Default 2: Try from Pegawai table (if linked)
+            if (!empty($user['pegawai_id'])) {
+                $db = \Config\Database::connect();
+                if ($db->tableExists('pegawai')) {
+                    $pegawai = $db->table('pegawai')->getWhere(['id' => $user['pegawai_id']])->getRowArray();
+                    if ($pegawai) {
+                        if (!empty($pegawai['unit_kerja'])) $defaultUnitKerja = $pegawai['unit_kerja'];
+                        if (!empty($pegawai['nama'])) $defaultPelaksana = $pegawai['nama'];
+                    }
+                }
+            }
+
+            // Set defaults if not manually filled yet
+            $data['program_kerja']['unit_kerja'] = $defaultUnitKerja;
+            $data['program_kerja']['pelaksana']  = $defaultPelaksana;
+        }
         
         return view('program_kerja/form', $data);
     }
