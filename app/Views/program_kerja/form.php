@@ -125,10 +125,11 @@
                         type="text" 
                         id="pelaksana" 
                         name="pelaksana" 
-                        class="form-input"
+                        class="form-input bg-gray-100"
                         value="<?= old('pelaksana', $program_kerja['pelaksana'] ?? '') ?>"
                         maxlength="255"
                         placeholder="Nama pelaksana atau PIC"
+                        readonly
                     >
                 </div>
             </div>
