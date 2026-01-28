@@ -40,6 +40,13 @@ class Auth extends BaseController
             return redirect()->back()->withInput();
         }
 
+        // Ambil data detail pegawai dari View (untuk Auto-fill Form)
+        $pegawaiModel = new \App\Models\PegawaiViewModel();
+        $pegawaiDetail = null;
+        if (!empty($user['pegawai_id'])) {
+            $pegawaiDetail = $pegawaiModel->getDetail($user['pegawai_id']);
+        }
+
         $session->set([
             'isLoggedIn' => true,
             'user'       => [
@@ -48,6 +55,8 @@ class Auth extends BaseController
                 'username_ldap' => $user['username_ldap'],
                 'role_id'       => $user['role_id'] ?? null,
                 'pegawai_id'    => $user['pegawai_id'] ?? null,
+                // Simpan detail pegawai lengkap untuk akses data unit kerja & nama asli
+                'pegawai_detail'=> $pegawaiDetail 
             ],
         ]);
 

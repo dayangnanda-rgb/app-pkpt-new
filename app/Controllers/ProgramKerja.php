@@ -117,8 +117,26 @@ class ProgramKerja extends BaseController
             $defaultUnitKerja = $user['unit_kerja'] ?? ''; 
             $defaultPelaksana = $user['nama_lengkap'] ?? $user['username_ldap'];
 
-            // Default 2: Try from Pegawai table (if linked)
-            if (!empty($user['pegawai_id'])) {
+            // Default 2: Try from Session data (Pegawai View) - PRIORITY
+            $userSession = session('user');
+            if (!empty($userSession['pegawai_detail'])) {
+                $detail = $userSession['pegawai_detail'];
+                
+                // Prioritize Eselon 2 unit, fallback to alias or base unit name
+                if (!empty($detail['unit_kerja_es_2'])) {
+                    $defaultUnitKerja = $detail['unit_kerja_es_2'];
+                } elseif (!empty($detail['unit_kerja_alias'])) {
+                    $defaultUnitKerja = $detail['unit_kerja_alias'];
+                } elseif (!empty($detail['nama_unit_kerja'])) {
+                    $defaultUnitKerja = $detail['nama_unit_kerja'];
+                }
+
+                if (!empty($detail['nama'])) {
+                    $defaultPelaksana = $detail['nama'];
+                }
+            }
+            // Fallback (Old Logic): DB Query if session empty
+            elseif (!empty($user['pegawai_id'])) {
                 $db = \Config\Database::connect();
                 if ($db->tableExists('pegawai')) {
                     $pegawai = $db->table('pegawai')->getWhere(['id' => $user['pegawai_id']])->getRowArray();
