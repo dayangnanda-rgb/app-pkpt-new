@@ -7,6 +7,13 @@ use App\Models\DokumenModel;
 
 use CodeIgniter\HTTP\ResponseInterface;
 
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+
 /**
  * Controller: Program Kerja
  * 
@@ -470,7 +477,7 @@ class ProgramKerja extends BaseController
         return $this->response->download($path, null); 
     }
     /**
-     * Ekspor seluruh data program kerja ke Excel (CSV format)
+     * Ekspor seluruh data program kerja ke Excel (.xlsx) dengan format profesional
      * 
      * @return void
      */
@@ -479,8 +486,16 @@ class ProgramKerja extends BaseController
         $keyword = $this->request->getGet('cari');
         $tahun = $this->request->getGet('tahun');
 
-        // Build query based on filters
-        $query = $this->programKerjaModel->select('*');
+        // Ambil query dari model untuk mendapatkan dokumen_output juga
+        $db = \Config\Database::connect();
+        $subQuery = $db->table('program_kerja_dokumen')
+            ->select("GROUP_CONCAT(CONCAT(id, ':', nama_file, ':', COALESCE(tipe_dokumen, 'Dokumen')) SEPARATOR '|')")
+            ->where('program_kerja_id = program_kerja.id')
+            ->orderBy('created_at', 'DESC')
+            ->getCompiledSelect();
+
+        $query = $this->programKerjaModel->select('program_kerja.*')
+                      ->select("($subQuery) as dokumen_output");
         
         if ($keyword || $tahun) {
             if ($keyword) {
@@ -498,44 +513,120 @@ class ProgramKerja extends BaseController
 
         $data = $query->orderBy('created_at', 'DESC')->findAll();
 
-        // Set Headers for Download
-        $filename = 'Data_Program_Kerja_' . date('Y-m-d_His') . '.csv';
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename=' . $filename);
-
-        $output = fopen('php://output', 'w');
-        
-        // Add BOM for Excel UTF-8 compatibility
-        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+        // Create new Spreadsheet object
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Program Kerja');
 
         // Header column
-        fputcsv($output, [
+        $headers = [
             'No', 'Tahun', 'Nama Kegiatan', 'Tanggal Mulai', 'Tanggal Selesai', 
             'Unit Kerja', 'Rencana Kegiatan', 'Anggaran', 'Realisasi Kegiatan', 
-            'Pelaksana', 'Realisasi Anggaran', 'Sasaran Strategis', 'Status'
-        ], ';'); // Using semicolon as default for many Excel regions, or stick to comma
+            'Pelaksana', 'Dokumen', 'Realisasi Anggaran', 'Sasaran Strategis', 'Status'
+        ];
 
-        // Data rows
-        $no = 1;
-        foreach ($data as $row) {
-            fputcsv($output, [
-                $no++,
-                $row['tahun'],
-                $row['nama_kegiatan'],
-                $row['tanggal_mulai'],
-                $row['tanggal_selesai'],
-                $row['unit_kerja'],
-                $row['rencana_kegiatan'],
-                $row['anggaran'],
-                $row['realisasi_kegiatan'],
-                $row['pelaksana'],
-                $row['realisasi_anggaran'],
-                $row['sasaran_strategis'],
-                $row['status']
-            ], ';');
+        // Fill headers
+        $col = 'A';
+        foreach ($headers as $header) {
+            $sheet->setCellValue($col . '1', $header);
+            $col++;
         }
 
-        fclose($output);
+        // Style for Header
+        $headerStyle = [
+            'font' => [
+                'bold' => true,
+                'color' => ['rgb' => 'FFFFFF'],
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '28A745'], // Match user's green header request
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                ],
+            ],
+        ];
+        $sheet->getStyle('A1:N1')->applyFromArray($headerStyle);
+        $sheet->getRowDimension(1)->setRowHeight(25);
+
+        // Data rows
+        $rowIdx = 2;
+        $no = 1;
+        $baseUrl = base_url('program-kerja/download-dokumen/');
+
+        foreach ($data as $row) {
+            // Process dokumen_output for readable text
+            $dokumenList = [];
+            if (!empty($row['dokumen_output'])) {
+                $docs = explode('|', $row['dokumen_output']);
+                foreach ($docs as $docStr) {
+                    $parts = explode(':', $docStr);
+                    if (count($parts) >= 2) {
+                        $docType = $parts[2] ?? 'Dokumen';
+                        $dokumenList[] = "[$docType] " . $parts[1];
+                    }
+                }
+            }
+            $dokumenText = implode("\n", $dokumenList);
+
+            $sheet->setCellValue('A' . $rowIdx, $no++);
+            $sheet->setCellValue('B' . $rowIdx, $row['tahun']);
+            $sheet->setCellValue('C' . $rowIdx, $row['nama_kegiatan']);
+            $sheet->setCellValue('D' . $rowIdx, $row['tanggal_mulai']);
+            $sheet->setCellValue('E' . $rowIdx, $row['tanggal_selesai']);
+            $sheet->setCellValue('F' . $rowIdx, $row['unit_kerja']);
+            $sheet->setCellValue('G' . $rowIdx, $row['rencana_kegiatan']);
+            $sheet->setCellValue('H' . $rowIdx, $row['anggaran']);
+            $sheet->setCellValue('I' . $rowIdx, $row['realisasi_kegiatan']);
+            $sheet->setCellValue('J' . $rowIdx, $row['pelaksana']);
+            $sheet->setCellValue('K' . $rowIdx, $dokumenText);
+            $sheet->getStyle('K' . $rowIdx)->getAlignment()->setWrapText(true); // Wrap text for documents
+            $sheet->setCellValue('L' . $rowIdx, $row['realisasi_anggaran']);
+            $sheet->setCellValue('M' . $rowIdx, $row['sasaran_strategis']);
+            $sheet->setCellValue('N' . $rowIdx, $row['status']);
+
+            // Style for data cell (borders)
+            $sheet->getStyle('A' . $rowIdx . ':N' . $rowIdx)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+            $rowIdx++;
+        }
+
+        // Auto column width & text wrapping
+        foreach (range('A', 'N') as $colId) {
+            if ($colId !== 'K') { // Don't auto-size documents column to avoid extreme width
+                $sheet->getColumnDimension($colId)->setAutoSize(true);
+            } else {
+                $sheet->getColumnDimension($colId)->setWidth(30);
+            }
+        }
+
+        // Specific formatting for currency (IDR)
+        $idrFormat = '_-"Rp"* #,##0_-;-"Rp"* #,##0_-;_-"Rp"* "-"_-;_-@_-';
+        $sheet->getStyle('H2:H' . ($rowIdx - 1))->getNumberFormat()->setFormatCode($idrFormat);
+        $sheet->getStyle('L2:L' . ($rowIdx - 1))->getNumberFormat()->setFormatCode($idrFormat);
+
+        // Set date format
+        $sheet->getStyle('D2:E' . ($rowIdx - 1))->getNumberFormat()->setFormatCode('DD/MM/YYYY');
+
+        // Center No and Tahun
+        $sheet->getStyle('A2:B' . ($rowIdx - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        // Header Filtering
+        $sheet->setAutoFilter('A1:N1');
+
+        // Redirect output to a client’s web browser (Xlsx)
+        $filename = 'Data_Program_Kerja_' . date('Y-m-d_His') . '.xlsx';
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment;filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+        
+        $writer = new Xlsx($spreadsheet);
+        $writer->save('php://output');
         exit();
     }
 }

@@ -150,7 +150,7 @@ class ProgramKerjaModel extends Model
     {
         // Subquery yang sama seperti di atas untuk pencarian
         $subQuery = $this->db->table('program_kerja_dokumen')
-            ->select("GROUP_CONCAT(CONCAT(id, ':', nama_file, ':', COALESCE(tipe_dokumen, 'Dokumen')) SEPARATOR '|')")
+            ->select("GROUP_CONCAT(CONCAT(id, ':', nama_file, ':', COALESCE(tipe_dokumen, 'Dokumen'), ':', COALESCE(nama_asli, nama_file)) SEPARATOR '|')")
             ->where('program_kerja_id = program_kerja.id')
             ->orderBy('created_at', 'DESC')
             ->getCompiledSelect();
