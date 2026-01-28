@@ -97,60 +97,66 @@ class ProgramKerja extends BaseController
     }
 
     /**
-     * Halaman form tambah program kerja
+     * Halaman form tambah program kerja baru.
+     * Mengambil data unit kerja dan pegawai dari sesi user jika tersedia untuk auto-fill.
      * 
-     * @return string
+     * @return string Halaman view form tambah
      */
     public function tambah()
     {
-        $data['judul'] = 'Tambah Program Kerja';
-        $data['aksi'] = 'tambah';
-        $data['program_kerja'] = []; 
+        $data = [
+            'judul' => 'Tambah Program Kerja',
+            'aksi' => 'tambah',
+            'program_kerja' => [],
+            // Auto-fill dari session user login (jika ada)
+            'defaultUnitKerja' => session()->get('user.pegawai_detail.unit_kerja_nama') ?? '',
+            'defaultPelaksana' => session()->get('user.pegawai_detail.nama_asli') ?? ''
+        ];
 
-        // Autofill Logic: Get user from session
-        $userId = session()->get('user.id');
-        if ($userId) {
-            $userModel = new \App\Models\UserModel();
-            $user = $userModel->find($userId);
+        // Old auto-fill logic (removed as per instruction)
+        // $userId = session()->get('user.id');
+        // if ($userId) {
+        //     $userModel = new \App\Models\UserModel();
+        //     $user = $userModel->find($userId);
             
-            // Default 1: Try from Users table (if columns manually added)
-            $defaultUnitKerja = $user['unit_kerja'] ?? ''; 
-            $defaultPelaksana = $user['nama_lengkap'] ?? $user['username_ldap'];
+        //     // Default 1: Try from Users table (if columns manually added)
+        //     $defaultUnitKerja = $user['unit_kerja'] ?? ''; 
+        //     $defaultPelaksana = $user['nama_lengkap'] ?? $user['username_ldap'];
 
-            // Default 2: Try from Session data (Pegawai View) - PRIORITY
-            $userSession = session('user');
-            if (!empty($userSession['pegawai_detail'])) {
-                $detail = $userSession['pegawai_detail'];
+        //     // Default 2: Try from Session data (Pegawai View) - PRIORITY
+        //     $userSession = session('user');
+        //     if (!empty($userSession['pegawai_detail'])) {
+        //         $detail = $userSession['pegawai_detail'];
                 
-                // Prioritize Eselon 2 unit, fallback to alias or base unit name
-                if (!empty($detail['unit_kerja_es_2'])) {
-                    $defaultUnitKerja = $detail['unit_kerja_es_2'];
-                } elseif (!empty($detail['unit_kerja_alias'])) {
-                    $defaultUnitKerja = $detail['unit_kerja_alias'];
-                } elseif (!empty($detail['nama_unit_kerja'])) {
-                    $defaultUnitKerja = $detail['nama_unit_kerja'];
-                }
+        //         // Prioritize Eselon 2 unit, fallback to alias or base unit name
+        //         if (!empty($detail['unit_kerja_es_2'])) {
+        //             $defaultUnitKerja = $detail['unit_kerja_es_2'];
+        //         } elseif (!empty($detail['unit_kerja_alias'])) {
+        //             $defaultUnitKerja = $detail['unit_kerja_alias'];
+        //         } elseif (!empty($detail['nama_unit_kerja'])) {
+        //             $defaultUnitKerja = $detail['nama_unit_kerja'];
+        //         }
 
-                if (!empty($detail['nama'])) {
-                    $defaultPelaksana = $detail['nama'];
-                }
-            }
-            // Fallback (Old Logic): DB Query if session empty
-            elseif (!empty($user['pegawai_id'])) {
-                $db = \Config\Database::connect();
-                if ($db->tableExists('pegawai')) {
-                    $pegawai = $db->table('pegawai')->getWhere(['id' => $user['pegawai_id']])->getRowArray();
-                    if ($pegawai) {
-                        if (!empty($pegawai['unit_kerja'])) $defaultUnitKerja = $pegawai['unit_kerja'];
-                        if (!empty($pegawai['nama'])) $defaultPelaksana = $pegawai['nama'];
-                    }
-                }
-            }
+        //         if (!empty($detail['nama'])) {
+        //             $defaultPelaksana = $detail['nama'];
+        //         }
+        //     }
+        //     // Fallback (Old Logic): DB Query if session empty
+        //     elseif (!empty($user['pegawai_id'])) {
+        //         $db = \Config\Database::connect();
+        //         if ($db->tableExists('pegawai')) {
+        //             $pegawai = $db->table('pegawai')->getWhere(['id' => $user['pegawai_id']])->getRowArray();
+        //             if ($pegawai) {
+        //                 if (!empty($pegawai['unit_kerja'])) $defaultUnitKerja = $pegawai['unit_kerja'];
+        //                 if (!empty($pegawai['nama'])) $defaultPelaksana = $pegawai['nama'];
+        //             }
+        //         }
+        //     }
 
-            // Set defaults if not manually filled yet
-            $data['program_kerja']['unit_kerja'] = $defaultUnitKerja;
-            $data['program_kerja']['pelaksana']  = $defaultPelaksana;
-        }
+        //     // Set defaults if not manually filled yet
+        //     $data['program_kerja']['unit_kerja'] = $defaultUnitKerja;
+        //     $data['program_kerja']['pelaksana']  = $defaultPelaksana;
+        // }
         
         return view('program_kerja/form', $data);
     }
@@ -416,19 +422,26 @@ class ProgramKerja extends BaseController
     }
 
     /**
-     * Ambil daftar dokumen (AJAX)
+     * API AJAX: Mengambil daftar dokumen untuk program kerja tertentu.
+     * Digunakan oleh Javascript di halaman detail/form untuk menampilkan list dokumen.
+     * 
+     * @param int $id ID Program Kerja
+     * @return ResponseInterface JSON Data dokumen
      */
     public function dokumen($id)
     {
+        // Ambil data dokumen dari DB
         $dokumen = $this->dokumenModel->where('program_kerja_id', $id)
                                      ->orderBy('created_at', 'DESC')
                                      ->findAll();
         
+        // Format data untuk respon JSON
         $data = [];
         foreach ($dokumen as $doc) {
             $path = WRITEPATH . 'uploads/dokumen_output/' . $doc['nama_file'];
+            // Cek fisik file untuk ukuran
             $doc['size'] = file_exists($path) ? filesize($path) : 0;
-            // Use nama_asli if available, otherwise nama_file
+            // Gunakan nama asli jika ada, jika tidak gunakan nama sistem
             $doc['display_name'] = !empty($doc['nama_asli']) ? $doc['nama_asli'] : $doc['nama_file'];
             $data[] = $doc;
         }
@@ -440,7 +453,10 @@ class ProgramKerja extends BaseController
     }
 
     /**
-     * Upload dokumen (AJAX)
+     * Mengunggah dokumen baru untuk program kerja tertentu via AJAX.
+     * 
+     * @param int $id ID Program Kerja
+     * @return ResponseInterface JSON Status upload
      */
     public function uploadDokumen($id)
     {
@@ -470,7 +486,11 @@ class ProgramKerja extends BaseController
     }
 
     /**
-     * Hapus dokumen (AJAX)
+     * API AJAX: Menghapus dokumen tertentu.
+     * Menghapus record di database dan file fisik di server.
+     * 
+     * @param int $id ID Dokumen
+     * @return ResponseInterface JSON Status
      */
     public function hapusDokumen($id)
     {
@@ -491,7 +511,11 @@ class ProgramKerja extends BaseController
     }
 
     /**
-     * Download dokumen
+     * Mendownload file dokumen.
+     * Mengatur header agar browser mengunduh file, bukan hanya menampilkannya.
+     * 
+     * @param int $id ID Dokumen
+     * @return ResponseInterface Download Stream
      */
     public function download($id)
     {
@@ -509,7 +533,11 @@ class ProgramKerja extends BaseController
     }
 
     /**
-     * Preview dokumen (Inline View)
+     * Preview dokumen di browser (Inline).
+     * Berguna untuk menampilkan PDF atau gambar dalam Iframe/Tab baru tanpa download.
+     * 
+     * @param int $id ID Dokumen
+     * @return ResponseInterface File Stream (Inline)
      */
     public function preview($id)
     {
