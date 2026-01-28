@@ -1,190 +1,195 @@
 /* ===== FOOTER ===== */
 .footer {
-    background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
-    color: rgba(255, 255, 255, 0.75);
-    padding: 60px 0 30px;
-    margin-top: 10px;
-    /* Significantly reduced margin-top */
-    border-top: 4px solid #FAC70B;
-    position: relative;
-    overflow: hidden;
+  background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+  color: rgba(255, 255, 255, 0.75);
+  padding: 60px 0 30px;
+  margin-top: 10px;
+  /* Significantly reduced margin-top */
+  border-top: 4px solid #fac70b;
+  position: relative;
+  overflow: hidden;
 }
 
 /* Subtle background accent */
 .footer::before {
-    content: '';
-    position: absolute;
-    top: -50px;
-    right: -50px;
-    width: 200px;
-    height: 200px;
-    background: radial-gradient(circle, rgba(250, 199, 11, 0.05) 0%, transparent 70%);
-    pointer-events: none;
+  content: "";
+  position: absolute;
+  top: -50px;
+  right: -50px;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(
+    circle,
+    rgba(250, 199, 11, 0.05) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
 }
 
 .footer-grid {
-    display: grid;
-    grid-template-columns: 1.5fr 1fr 1fr;
-    gap: 50px;
-    margin-bottom: 50px;
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr;
+  gap: 50px;
+  margin-bottom: 50px;
 }
 
 .footer-branding .logo-section {
-    margin-bottom: 25px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
 .logo-image-footer {
-    width: 70px;
-    height: 70px;
-    object-fit: contain;
-    filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.3));
+  width: 70px;
+  height: 70px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.3));
 }
 
 .footer-description {
-    font-size: 0.95rem;
-    line-height: 1.7;
-    max-width: 450px;
-    margin-top: 15px;
-    color: rgba(255, 255, 255, 0.6);
+  font-size: 0.95rem;
+  line-height: 1.7;
+  max-width: 450px;
+  margin-top: 5px;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: justify;
 }
 
 /* Titles Style */
 .footer-links h3,
 .footer-contact h3 {
-    color: #fff;
-    font-size: 1.25rem;
-    margin-bottom: 25px;
-    font-weight: 700;
-    position: relative;
-    padding-bottom: 12px;
+  color: #fff;
+  font-size: 1.25rem;
+  margin-bottom: 25px;
+  font-weight: 700;
+  position: relative;
+  padding-bottom: 12px;
 }
 
 .footer-links h3::after,
 .footer-contact h3::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 35px;
-    height: 3px;
-    background: #FAC70B;
-    border-radius: 2px;
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 35px;
+  height: 3px;
+  background: #fac70b;
+  border-radius: 2px;
 }
 
 /* Column 2: Quick Links */
 .footer-menu {
-    list-style: none;
-    padding: 0;
-    margin: 0;
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .footer-menu li {
-    margin-bottom: 15px;
+  margin-bottom: 15px;
 }
 
 .footer-menu a {
-    color: rgba(255, 255, 255, 0.7);
-    text-decoration: none;
-    font-size: 0.95rem;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    transition: all 0.3s ease;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.3s ease;
 }
 
 .footer-menu a i {
-    font-size: 0.75rem;
-    color: #FAC70B;
-    opacity: 0.7;
-    transition: transform 0.3s ease;
+  font-size: 0.75rem;
+  color: #fac70b;
+  opacity: 0.7;
+  transition: transform 0.3s ease;
 }
 
 .footer-menu a:hover {
-    color: #fff;
-    padding-left: 5px;
+  color: #fff;
+  padding-left: 5px;
 }
 
 .footer-menu a:hover i {
-    transform: translateX(3px);
-    opacity: 1;
+  transform: translateX(3px);
+  opacity: 1;
 }
 
 /* Column 3: Contact */
 .contact-info p {
-    display: flex;
-    align-items: flex-start;
-    gap: 15px;
-    margin-bottom: 18px;
-    font-size: 0.95rem;
-    line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px; /* Reduced from 15px */
+  margin-bottom: 15px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  text-align: left;
 }
 
 .contact-info i {
-    color: #FAC70B;
-    font-size: 1.1rem;
-    width: 20px;
-    margin-top: 3px;
+  color: #fac70b;
+  font-size: 1.1rem;
+  width: 20px;
+  margin-top: 3px;
 }
 
 .contact-info span {
-    flex: 1;
+  flex: 1;
+  text-align: justify; /* Request: rata kiri atau justify */
 }
-
 
 /* Footer Bottom */
 .footer-bottom {
-    padding-top: 25px;
-    margin-top: 20px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    text-align: center;
-    font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.5);
+  padding-top: 25px;
+  margin-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .footer-rights {
-    display: inline-block;
-    margin-left: 5px;
+  display: inline-block;
+  margin-left: 5px;
 }
 
 /* Responsive */
 @media (max-width: 1024px) {
-    .footer-grid {
-        grid-template-columns: 1fr 1fr;
-        gap: 40px;
-    }
+  .footer-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+  }
 
-    .footer-branding {
-        grid-column: span 2;
-        margin-bottom: 20px;
-    }
+  .footer-branding {
+    grid-column: span 2;
+    margin-bottom: 20px;
+  }
 }
 
 @media (max-width: 768px) {
-    .footer {
-        padding: 40px 0 20px;
-    }
+  .footer {
+    padding: 40px 0 20px;
+  }
 
-    .footer-grid {
-        grid-template-columns: 1fr;
-        gap: 35px;
-    }
+  .footer-grid {
+    grid-template-columns: 1fr;
+    gap: 35px;
+  }
 
-    .footer-branding {
-        grid-column: span 1;
-    }
+  .footer-branding {
+    grid-column: span 1;
+  }
 
-    .footer-branding .logo-section {
-        flex-direction: row;
-        text-align: left;
-        align-items: center;
-    }
+  .footer-branding .logo-section {
+    flex-direction: row;
+    text-align: left;
+    align-items: center;
+  }
 
-    .footer-description {
-        text-align: left;
-        margin: 15px 0 0;
-    }
-
+  .footer-description {
+    text-align: left;
+    margin: 15px 0 0;
+  }
 }

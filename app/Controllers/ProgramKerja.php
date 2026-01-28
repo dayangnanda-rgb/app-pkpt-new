@@ -108,10 +108,31 @@ class ProgramKerja extends BaseController
             'judul' => 'Tambah Program Kerja',
             'aksi' => 'tambah',
             'program_kerja' => [],
-            // Auto-fill dari session user login (jika ada)
-            'defaultUnitKerja' => session()->get('user.pegawai_detail.unit_kerja_nama') ?? '',
-            'defaultPelaksana' => session()->get('user.pegawai_detail.nama_asli') ?? ''
         ];
+
+        // Auto-fill Logic
+        $detail = session()->get('user.pegawai_detail');
+        $defaultUnitKerja = '';
+        $defaultPelaksana = '';
+
+        if ($detail) {
+            // 1. Pelaksana: Use 'nama' column
+            $defaultPelaksana = $detail['nama'] ?? '';
+
+            // 2. Unit Kerja: Diambil dari kolom 'unit_kerja_es_2' sesuai request
+            if (!empty($detail['unit_kerja_es_2'])) {
+                $defaultUnitKerja = $detail['unit_kerja_es_2'];
+            } 
+            // Fallback hanya jika es_2 kosong (untuk backward compatibility)
+            elseif (!empty($detail['unit_kerja_es_3'])) {
+                $defaultUnitKerja = $detail['unit_kerja_es_3'];
+            } elseif (!empty($detail['unit_kerja'])) {
+                $defaultUnitKerja = $detail['unit_kerja'];
+            }
+        }
+
+        $data['defaultUnitKerja'] = $defaultUnitKerja;
+        $data['defaultPelaksana'] = $defaultPelaksana;
 
         // Old auto-fill logic (removed as per instruction)
         // $userId = session()->get('user.id');
