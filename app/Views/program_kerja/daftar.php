@@ -92,11 +92,20 @@
             <tbody>
                 <?php if (!empty($program_kerja)): ?>
                     <?php 
-                    $no = 1 + (($pager->getCurrentPage() - 1) * $pager->getPerPage());
+                    // Reverse Numbering Logic
+                    // Start number = Total Items - Offset
+                    // Note: If getTotal() is not supported by custom pager, we might need a fallback, 
+                    // but standard CI4 pager supports it.
+                    $currentPage = $pager->getCurrentPage() ?: 1;
+                    $perPage = $pager->getPerPage() ?: 10;
+                    $total = $pager->getTotal() ?: count($program_kerja);
+                    
+                    $no = $total - (($currentPage - 1) * $perPage);
+                    
                     foreach ($program_kerja as $pk): 
                     ?>
                         <tr class="table-row-clickable" onclick="window.location='<?= base_url('program-kerja/lihat/' . $pk['id']) ?>'">
-                            <td class="td-no"><?= $no++ ?></td>
+                            <td class="td-no"><?= $no-- ?></td>
                             <td class="td-nama">
                                 <div class="cell-content"><?= esc($pk['nama_kegiatan']) ?></div>
                             </td>

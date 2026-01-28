@@ -108,6 +108,14 @@ class ProgramKerjaModel extends Model
      * @param int|null $tahun Filter tahun
      * @return array
      */
+    /**
+     * Mengambil semua data program kerja dengan fitur paginasi.
+     * Termasuk subquery untuk mendapatkan daftar dokumen terkait dalam satu query.
+     * 
+     * @param int $perPage Jumlah data per halaman (default 10)
+     * @param int|null $tahun Filter berdasarkan tahun (opsional)
+     * @return array Data program kerja
+     */
     public function ambilSemuaData($perPage = 10, $tahun = null)
     {
         /**
@@ -146,6 +154,15 @@ class ProgramKerjaModel extends Model
      * @param int|null $tahun Filter tahun
      * @return array
      */
+    /**
+     * Mencari program kerja berdasarkan kata kunci (keyword) dan tahun.
+     * Pencarian mencakup: Nama Kegiatan, Pelaksana, Unit Kerja, dan Status.
+     * 
+     * @param string $keyword Kata kunci pencarian
+     * @param int $perPage Jumlah data per halaman
+     * @param int|null $tahun Filter tahun
+     * @return array Data hasil pencarian
+     */
     public function cariProgramKerja($keyword, $perPage = 10, $tahun = null)
     {
         // Subquery yang sama seperti di atas untuk pencarian
@@ -176,6 +193,12 @@ class ProgramKerjaModel extends Model
      * Ambil daftar tahun yang tersedia di database
      * 
      * @return array
+     */
+    /**
+     * Mengambil daftar tahun yang tersedia di database.
+     * Digunakan untuk opsi filter dropdown tahun.
+     * 
+     * @return array Daftar tahun unik (descending)
      */
     public function getYears()
     {
@@ -239,6 +262,15 @@ class ProgramKerjaModel extends Model
      * Ambil statistik dashboard
      * 
      * @return array
+     */
+    /**
+     * Mengambil ringkasan statistik untuk dashboard.
+     * - Total Program
+     * - Total Anggaran
+     * - Total Realisasi
+     * - Persentase Capaian
+     * 
+     * @return array Data statistik
      */
     public function ambilStatistik()
     {
@@ -403,6 +435,14 @@ class ProgramKerjaModel extends Model
      * - Kegiatan yang sudah selesai tapi butuh pembaruan data (realisasi)
      * 
      * @return array
+     */
+    /**
+     * Mengambil kegiatan yang membutuhkan perhatian pengguna (Notifikasi).
+     * Meliputi:
+     * 1. Kegiatan yang akan dimulai dalam 7 hari ke depan (Upcoming).
+     * 2. Kegiatan yang sudah selesai tanggalnya tapi belum ditandai 'Terlaksana' (Needs Update).
+     * 
+     * @return array Daftar notifikasi
      */
     public function getNotificationActivities()
     {
