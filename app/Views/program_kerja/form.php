@@ -44,7 +44,7 @@
 
         <!-- Section: Informasi Dasar -->
         <div class="form-section">
-            <h3 class="form-section-title">📋 Informasi Dasar</h3>
+            <h3 class="form-section-title">Informasi Dasar</h3>
             
             <!-- Tahun & Unit Kerja -->
             <div class="form-grid">
@@ -56,9 +56,9 @@
                 </div>
                 <div class="form-group">
                     <label for="unit_kerja" class="form-label">Unit Kerja</label>
-                    <input type="text" id="unit_kerja" name="unit_kerja" class="form-input"
-                        value="<?= old('unit_kerja', $program_kerja['unit_kerja'] ?? '') ?>" 
-                        maxlength="255" placeholder="Nama unit kerja">
+                    <input type="text" id="unit_kerja" name="unit_kerja" class="form-input bg-gray-100"
+                        value="<?= old('unit_kerja', $defaultUnitKerja ?? ($program_kerja['unit_kerja'] ?? '')) ?>" 
+                        maxlength="255" placeholder="Nama unit kerja" readonly>
                 </div>
             </div>
 
@@ -126,7 +126,7 @@
                         id="pelaksana" 
                         name="pelaksana" 
                         class="form-input bg-gray-100"
-                        value="<?= old('pelaksana', $program_kerja['pelaksana'] ?? '') ?>"
+                        value="<?= old('pelaksana', $defaultPelaksana ?? ($program_kerja['pelaksana'] ?? '')) ?>"
                         maxlength="255"
                         placeholder="Nama pelaksana atau PIC"
                         readonly
@@ -137,7 +137,7 @@
 
         <!-- Section: Rencana & Realisasi -->
         <div class="form-section">
-            <h3 class="form-section-title">📝 Rencana & Realisasi</h3>
+            <h3 class="form-section-title">Rencana & Realisasi</h3>
             
             <div class="form-grid">
                 <!-- Rencana Kegiatan -->
@@ -194,31 +194,38 @@
 
         <!-- Section: Dokumen & Sasaran -->
         <div class="form-section">
-            <h3 class="form-section-title">📁 Dokumen & Sasaran</h3>
+            <h3 class="form-section-title">Dokumen & Sasaran</h3>
             
             <!-- Dokumen Output -->
             <div class="form-group" style="grid-column: 1 / -1;">
-                <label class="form-label">Dokumen Output</label>
+                <label class="form-label mb-0">Dokumen Output</label>
+                <div class="text-xs text-gray-500 mb-2">
+                    Unggah dokumen output terkait kegiatan ini. Anda dapat mengunggah berbagai format file seperti PDF, DOCX, dan lainnya.
+                </div>
                 
                 <?php if ($aksi === 'tambah'): ?>
                     <!-- Mode Added: Button to Open Modal (Queue Mode) -->
-                    <div class="bg-gray-50 border border-dashed border-gray-300 rounded p-4 text-center">
-                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="bukaModalDokumen()">
-                            Upload Dokumen
+                    <div class="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-6 text-center">
+                        <button type="button" class="btn btn-outline-primary px-6 py-2" onclick="bukaModalDokumen()">
+                            <i class="fas fa-cloud-upload-alt mr-2"></i> Upload Dokumen
                         </button>
-                        <div id="mini-doc-preview" class="mt-2 flex flex-wrap gap-2 justify-center"></div>
+                        <!-- Vertical Preview List -->
+                        <div id="mini-doc-preview" style="display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 30px;"></div>
                     </div>
 
                 <?php else: ?>
                     <!-- Mode Edit: Button to Open Modal -->
-                    <div class="bg-gray-50 border border-dashed border-gray-300 rounded p-4 text-center">
-                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="bukaModalDokumen()">
-                            Kelola Dokumen
+                    <div class="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-6 text-center">
+                        <button type="button" class="btn btn-outline-primary px-6 py-2" onclick="bukaModalDokumen()">
+                            <i class="fas fa-folder-open mr-2"></i> Kelola Dokumen
                         </button>
-                        <div id="mini-doc-preview" class="mt-2 flex flex-wrap gap-2 justify-center"></div>
+                        <div id="mini-doc-preview" style="display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 30px;"></div>
                     </div>
                 <?php endif; ?>
             </div>
+
+            <!-- Separator Line -->
+            <hr style="grid-column: 1 / -1; margin: 2rem 0; border: 0; border-top: 1px solid #e2e8f0;">
 
             <div class="form-grid">
                 <!-- Sasaran Strategis -->
@@ -248,6 +255,7 @@
                         <option value="Terlaksana" <?= (old('status', $program_kerja['status'] ?? '') == 'Terlaksana') ? 'selected' : '' ?>>Terlaksana</option>
                         <option value="Tidak Terlaksana" <?= (old('status', $program_kerja['status'] ?? '') == 'Tidak Terlaksana') ? 'selected' : '' ?>>Tidak Terlaksana</option>
                         <option value="Penugasan Tambahan" <?= (old('status', $program_kerja['status'] ?? '') == 'Penugasan Tambahan') ? 'selected' : '' ?>>Penugasan Tambahan</option>
+                        <option value="Dibatalkan" <?= (old('status', $program_kerja['status'] ?? '') == 'Dibatalkan') ? 'selected' : '' ?>>Dibatalkan</option>
                     </select>
                 </div>
             </div>
@@ -430,13 +438,28 @@
         renderQueueList();
     }
 
+    function getFileIcon(filename) {
+        const ext = filename.split('.').pop().toLowerCase();
+        let icon = 'fa-file';
+        let color = 'text-gray-500';
+
+        switch(ext) {
+            case 'pdf': icon = 'fa-file-pdf'; color = 'text-red-500'; break;
+            case 'doc': case 'docx': icon = 'fa-file-word'; color = 'text-blue-500'; break;
+            case 'xls': case 'xlsx': icon = 'fa-file-excel'; color = 'text-green-500'; break;
+            case 'jpg': case 'jpeg': case 'png': icon = 'fa-file-image'; color = 'text-purple-500'; break;
+            case 'zip': case 'rar': icon = 'fa-file-archive'; color = 'text-yellow-500'; break;
+        }
+        return `<i class="fas ${icon} ${color}"></i>`;
+    }
+
     function renderQueueList() {
         const container = document.getElementById('form-doc-list');
         
         if (pendingFiles.length === 0) {
             container.innerHTML = `
                 <div class="flex flex-col items-center justify-center py-6 text-gray-400 border-2 border-dashed rounded-lg">
-                    <span class="text-xl mb-1">📂</span>
+                    <span class="text-4xl mb-2">📂</span>
                     <span class="text-sm">Belum ada dokumen yang akan diupload</span>
                 </div>
             `;
@@ -446,18 +469,20 @@
         let html = '<div class="space-y-2">';
         pendingFiles.forEach(item => {
              html += `
-                <div class="flex items-center justify-between p-2 bg-blue-50 rounded border border-blue-100">
-                    <div class="flex items-center gap-3 overflow-hidden">
-                        <span class="text-xl shrink-0">📄</span>
-                        <div class="min-w-0">
-                            <div class="text-sm font-medium truncate text-gray-700">${item.file.name}</div>
-                            <div class="text-xs text-gray-500">
-                                <span class="bg-white px-1.5 rounded border border-blue-100 text-blue-600">${item.tipe}</span>
-                                <span class="ml-2">${(item.file.size / 1024).toFixed(1)} KB</span>
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 12px; overflow: hidden; flex: 1;">
+                        <span style="font-size: 1.25rem; flex-shrink: 0;">${getFileIcon(item.file.name)}</span>
+                        <div style="min-width: 0;">
+                            <div style="font-size: 0.875rem; font-weight: 500; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.file.name}</div>
+                            <div style="font-size: 0.75rem; color: #64748b; display: flex; align-items: center; gap: 8px;">
+                                <span style="background: white; padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0; color: #2563eb;">${item.tipe}</span>
+                                <span>${(item.file.size / 1024).toFixed(1)} KB</span>
                             </div>
                         </div>
                     </div>
-                    <button type="button" onclick="removeFromQueue(${item.id})" class="text-red-500 hover:text-red-700 p-1">✕</button>
+                    <button type="button" onclick="removeFromQueue(${item.id})" style="color: #ef4444; padding: 8px; border-radius: 4px; border: none; background: transparent; cursor: pointer;" title="Hapus">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
                 </div>
             `;
         });
@@ -465,6 +490,7 @@
         container.innerHTML = html;
     }
     
+    // --- UPDATED PREVIEW LOGIC: Vertical List with Icons ---
     function renderMiniQueuePreview() {
         const container = document.getElementById('mini-doc-preview');
         if (!container) return;
@@ -475,13 +501,27 @@
         }
         
         let html = '';
-        pendingFiles.slice(0, 3).forEach(item => {
-            html += `<span class="px-2 py-1 rounded bg-blue-50 text-blue-700 text-xs border border-blue-100 truncate max-w-[100px]">${item.file.name}</span>`;
+        pendingFiles.forEach(item => {
+            html += `
+            <div style="display: flex; align-items: center; gap: 12px; padding: 10px; background: white; border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                <div style="font-size: 1.25rem; width: 32px; text-align: center; flex-shrink: 0;">
+                    ${getFileIcon(item.file.name)}
+                </div>
+                <div style="flex: 1; min-width: 0; text-align: left;">
+                    <div style="font-size: 0.875rem; font-weight: 500; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${item.file.name}">${item.file.name}</div>
+                    <div style="font-size: 0.75rem; color: #6b7280;">${item.tipe} • ${(item.file.size / 1024).toFixed(1)} KB</div>
+                </div>
+                <div style="color: #10b981; font-size: 0.75rem; background: #ecfdf5; padding: 2px 8px; border-radius: 4px; display: none;">
+                    <i class="fas fa-check"></i> Siap
+                </div>
+            </div>`;
         });
         
-        if(pendingFiles.length > 3) html += `<span class="px-2 py-1 bg-gray-100 text-xs text-gray-600 rounded">+${pendingFiles.length - 3}</span>`;
-        
         container.innerHTML = html;
+        // Show checkmark on larger screens using JS or just keep hidden for now to match screenshot "Siap" text
+        // Actually screenshot showed "Siap", so I'll enable it with inline-block
+        const badges = container.querySelectorAll('div[style*="background: #ecfdf5"]');
+        badges.forEach(b => b.style.display = 'block');
     }
 
 
@@ -568,9 +608,8 @@
     // Preview for Edit Mode (Existing docs)
     async function loadPreviewDokumen() {
         try {
-            const response = await fetch(`<?= base_url('program-kerja/dokumen/') ?>${PROGRAM_ID}`);
-            const result = await response.json();
-            if (result.sukses) renderMiniPreview(result.data);
+             // In edit mode we just fetch and render
+            loadDokumenForm(); 
         } catch(e) {}
     }
     
@@ -578,11 +617,24 @@
     function renderMiniPreview(docs) {
         const container = document.getElementById('mini-doc-preview');
         if (!container) return;
+        
+        if (docs.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
         let html = '';
-        docs.slice(0, 5).forEach(doc => {
+        docs.forEach(doc => {
              // Handle both object formats (DB vs Queue)
             const name = doc.nama_file || doc.file.name;
-            html += `<span class="px-2 py-1 rounded bg-gray-100 text-xs truncate max-w-[100px]">${name}</span>`;
+            html += `
+            <div style="display: flex; align-items: center; gap: 12px; padding: 10px; background: white; border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                 <div style="font-size: 1.25rem; width: 32px; text-align: center; flex-shrink: 0;">
+                    ${getFileIcon(name)}
+                </div>
+                    <div class="text-xs text-gray-500">${doc.tipe_dokumen || 'Dokumen'}</div>
+                </div>
+            </div>`;
         });
         container.innerHTML = html;
     }
@@ -592,7 +644,7 @@
          if (docs.length === 0) {
             container.innerHTML = `
                 <div class="flex flex-col items-center justify-center py-6 text-gray-400 border-2 border-dashed rounded-lg">
-                    <span class="text-2xl mb-1">📂</span>
+                    <span class="text-4xl mb-2">📂</span>
                     <span class="text-sm">Belum ada dokumen</span>
                 </div>
             `;
@@ -602,15 +654,17 @@
         let html = '<div class="space-y-2">';
         docs.forEach(doc => {
             html += `
-                <div class="flex items-center justify-between p-2 bg-white rounded border hover:bg-gray-50">
-                    <div class="flex items-center gap-3 overflow-hidden">
-                        <span class="text-xl shrink-0">📄</span>
-                        <div class="min-w-0">
-                            <div class="text-sm font-medium truncate">${doc.nama_file}</div>
-                            <div class="text-xs text-gray-500">${doc.tipe_dokumen}</div>
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 12px; overflow: hidden; flex: 1;">
+                        <span style="font-size: 1.25rem; flex-shrink: 0;">${getFileIcon(doc.nama_file)}</span>
+                        <div style="min-width: 0;">
+                            <div style="font-size: 0.875rem; font-weight: 500; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${doc.nama_file}</div>
+                            <div style="font-size: 0.75rem; color: #64748b;">${doc.tipe_dokumen}</div>
                         </div>
                     </div>
-                    <button onclick="hapusDokumenAjax(${doc.id})" type="button" class="text-red-500 p-1">🗑</button>
+                    <button onclick="hapusDokumenAjax(${doc.id})" type="button" style="color: #ef4444; padding: 8px; border-radius: 4px; border: none; background: transparent; cursor: pointer;" title="Hapus">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
                 </div>
             `;
         });
