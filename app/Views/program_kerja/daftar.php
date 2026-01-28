@@ -170,21 +170,15 @@
                                                 }
                                         ?>
                                             <div class="btn-group-dokumen">
-                                                <a href="<?= base_url('program-kerja/preview/' . $docId) ?>" 
-                                                   class="btn-dokumen-action" 
-                                                   target="_blank"
-                                                   onclick="event.stopPropagation()"
-                                                   title="Preview: <?= esc($docName) ?>">
-                                                    <i class="fas fa-eye text-primary"></i>
-                                                </a>
-                                                <a href="<?= base_url('program-kerja/download/' . $docId) ?>" 
+                                                <button type="button" 
+                                                   onclick="event.stopPropagation(); bukaPreview(<?= $docId ?>, '<?= esc($docName) ?>')"
                                                    class="btn-dokumen-main" 
-                                                   onclick="event.stopPropagation()"
-                                                   title="Download: <?= esc($docName) ?>">
+                                                   title="Preview & Download: <?= esc($docName) ?>">
                                                     <i class="<?= $iconClass ?> <?= $colorClass ?> doc-icon"></i>
                                                     <span class="doc-name-truncate"><?= esc($docType) ?></span>
-                                                    <i class="fas fa-download icon-download"></i>
-                                                </a>
+                                                    <!-- Optional: Chevron or eye icon to indicate action, but user asked for download style button triggering preview -->
+                                                    <!-- We keep it looking like a file button -->
+                                                </button>
                                             </div>
                                         <?php endif; endforeach; ?>
                                         
@@ -311,6 +305,8 @@
         </div>
     </div>
 <?php endif; ?>
+
+<?= $this->include('program_kerja/partials/modal_preview') ?>
 
 <?= $this->endSection() ?>
 
