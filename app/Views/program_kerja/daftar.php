@@ -29,7 +29,7 @@
 <div class="toolbar-container">
     <form method="get" action="<?= base_url('program-kerja') ?>" class="search-form-flex">
         <div class="search-input-group">
-            <span class="search-icon-inside">🔍</span>
+            <span class="search-icon-inside"><i class="fas fa-search" style="color: #6b7280;"></i></span>
             <input 
                 type="text" 
                 name="cari" 
@@ -117,16 +117,124 @@
                             <td class="td-pelaksana"><?= esc($pk['pelaksana']) ?: '-' ?></td>
                             <td class="td-dokumen">
                                 <?php if (!empty($pk['dokumen_output'])): ?>
-                                    <a href="<?= base_url('program-kerja/unduh-dokumen/' . $pk['id']) ?>" 
-                                       class="btn-dokumen" 
-                                       onclick="event.stopPropagation()"
-                                       title="Unduh Dokumen">
-                                        📄 Unduh
-                                    </a>
+                                    <div class="doc-list-stack">
+                                        <?php 
+                                        /**
+                                         * LOGIKA TAMPILAN DOKUMEN:
+                                         * 1. Data 'dokumen_output' berbentuk string gabungan: "id1:nama1:tipe1|id2:nama2:tipe2"
+                                         * 2. Kita pecah (explode) berdasarkan '|' menjadi array dokumen.
+                                         * 3. Loop setiap dokumen, pecah lagi berdasarkan ':' untuk dapat detailnya.
+                                         * 4. Batasi tampilan hanya 3 dokumen agar tabel tidak terlalu panjang.
+                                         */
+                                        
+                                        // 1. Pecah string menjadi array dokumen individu
+                                        $docs = explode('|', $pk['dokumen_output']);
+                                        $limit = 3; // Batas maksimal yang ditampilkan
+                                        $count = 0;
+                                        
+                                        foreach ($docs as $docStr): 
+                                            // 2. Pecah detail dokumen (ID : Nama File : Tipe Dokumen)
+                                            $parts = explode(':', $docStr);
+                                            
+                                            // Validasi: pastikan minimal ada ID dan Nama File
+                                            if (count($parts) < 2) continue;
+                                            
+                                            $docId   = $parts[0];
+                                            $docName = $parts[1];
+                                            // Jika tipe kosong, pakai default 'Dokumen'
+                                            $docType = $parts[2] ?? 'Dokumen'; 
+                                            
+                                            $count++;
+                                            
+                                            // Hanya render jika belum mencapai limit
+                                            if ($count <= $limit):
+                                                // Logika pemilihan ikon berdasarkan ekstensi file (Gunakan FontAwesome)
+                                                $iconClass = 'fas fa-file'; // Default
+                                                $colorClass = 'text-secondary';
+                                                
+                                                if (str_ends_with($docName, '.pdf')) {
+                                                    $iconClass = 'fas fa-file-pdf';
+                                                    $colorClass = 'text-danger';
+                                                }
+                                                elseif (preg_match('/\.(doc|docx)$/', $docName)) {
+                                                    $iconClass = 'fas fa-file-word';
+                                                    $colorClass = 'text-primary';
+                                                }
+                                                elseif (preg_match('/\.(xls|xlsx)$/', $docName)) {
+                                                    $iconClass = 'fas fa-file-excel';
+                                                    $colorClass = 'text-success';
+                                                }
+                                                elseif (preg_match('/\.(jpg|jpeg|png)$/', $docName)) {
+                                                    $iconClass = 'fas fa-image';
+                                                    $colorClass = 'text-info';
+                                                }
+                                        ?>
+                                            <a href="<?= base_url('program-kerja/download/' . $docId) ?>" 
+                                               class="btn-dokumen-sm" 
+                                               onclick="event.stopPropagation()"
+                                               title="<?= esc($docType) ?>&#10;(<?= esc($docName) ?>)">
+                                                <i class="<?= $iconClass ?> <?= $colorClass ?> doc-icon"></i>
+                                                <span class="doc-name-truncate"><?= esc($docType) ?></span>
+                                                <i class="fas fa-download icon-download"></i>
+                                            </a>
+                                        <?php endif; endforeach; ?>
+                                        
+                                        <?php if ($count > $limit): ?>
+                                            <span class="more-badge">+<?= $count - $limit ?> lainnya</span>
+                                        <?php endif; ?>
+                                    </div>
                                 <?php else: ?>
                                     <span class="text-muted">-</span>
                                 <?php endif; ?>
                             </td>
+                            <style>
+                            .doc-list-stack {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 4px;
+                                align-items: flex-start;
+                            }
+                            .btn-dokumen-sm {
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 8px;
+                                padding: 4px 8px;
+                                background: transparent;
+                                border: 1px solid #d1d5db; /* Simple gray border */
+                                border-radius: 4px;
+                                color: #374151;
+                                font-size: 0.8rem;
+                                text-decoration: none;
+                                max-width: 150px;
+                                transition: background-color 0.2s;
+                            }
+                            .btn-dokumen-sm:hover {
+                                background: #f9fafb;
+                                color: #111827;
+                                border-color: #6b7280;
+                            }
+                            .doc-name-truncate {
+                                max-width: 90px;
+                                white-space: nowrap;
+                                overflow: hidden;
+                                text-overflow: ellipsis;
+                                font-weight: normal;
+                            }
+                            .doc-icon {
+                                font-size: 0.9em;
+                            }
+                            .icon-download {
+                                font-size: 0.8em;
+                                color: #9ca3af;
+                            }
+                            .more-badge {
+                                font-size: 0.75rem;
+                                color: #6b7280;
+                                background: #f3f4f6;
+                                padding: 2px 8px;
+                                border-radius: 12px;
+                            }
+                            </style>
                             <td class="td-realisasi-anggaran">Rp <?= number_format($pk['realisasi_anggaran'], 0, ',', '.') ?></td>
                             <td class="td-sasaran">
                                 <div class="cell-content"><?= esc($pk['sasaran_strategis']) ?: '-' ?></div>

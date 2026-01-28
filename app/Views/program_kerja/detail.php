@@ -10,16 +10,13 @@
     </div>
     <div class="page-header-actions">
         <a href="<?= base_url('program-kerja/edit/' . $program_kerja['id']) ?>" class="btn btn-primary">
-            <span class="btn-icon">✎</span>
             Edit
         </a>
         <button onclick="konfirmasiHapus(<?= $program_kerja['id'] ?>, '<?= esc($program_kerja['nama_kegiatan']) ?>')" 
                 class="btn btn-danger">
-            <span class="btn-icon">🗑</span>
             Hapus
         </button>
         <a href="<?= base_url('program-kerja') ?>" class="btn btn-secondary">
-            <span class="btn-icon">←</span>
             Kembali
         </a>
     </div>
@@ -33,7 +30,7 @@
         <div class="detail-column-left">
             <!-- Section: Informasi Dasar -->
             <div class="detail-section">
-                <h3 class="detail-section-title">📋 Informasi Dasar</h3>
+                <h3 class="detail-section-title">Informasi Dasar</h3>
                 
                 <div class="detail-grid">
                     <div class="detail-item">
@@ -107,7 +104,7 @@
 
             <!-- Section: Rencana & Realisasi -->
             <div class="detail-section">
-                <h3 class="detail-section-title">📝 Rencana & Realisasi</h3>
+                <h3 class="detail-section-title">Rencana & Realisasi</h3>
                 
                 <div class="detail-grid">
                     <div class="detail-item">
@@ -154,7 +151,7 @@
 
             <!-- Section: Sasaran Strategis -->
             <div class="detail-section">
-                <h3 class="detail-section-title">🎯 Sasaran Strategis</h3>
+                <h3 class="detail-section-title">Sasaran Strategis</h3>
                 
                 <div class="detail-item detail-item-full">
                     <div class="detail-value detail-value-text">
@@ -197,7 +194,7 @@
 
             <!-- Section: Informasi Sistem -->
             <div class="detail-section detail-section-muted">
-                <h3 class="detail-section-title">ℹ️ Informasi Sistem</h3>
+                <h3 class="detail-section-title">Informasi Sistem</h3>
                 
                 <div class="detail-item">
                     <label class="detail-label">Dibuat Pada</label>
@@ -374,21 +371,77 @@ function renderDocList(docs) {
     container.innerHTML = html;
 }
 
+/**
+ * Fungsi untuk memperbarui tampilan preview dokumen di halaman detail.
+ * Mengambil data dokumen dari server dan merendernya menjadi daftar vertikal.
+ * 
+ * @param {Array} docs Array objek dokumen dari respon AJAX
+ */
 function updatePreview(docs) {
     const preview = document.getElementById('dokumen-list-preview');
+    
+    // Cek jika tidak ada dokumen
     if (docs.length === 0) {
-        preview.innerHTML = '<div class="text-muted text-sm mb-3">Belum ada dokumen</div>';
+        preview.innerHTML = '<div class="text-muted text-sm mb-3">Belum ada dokumen yang diunggah</div>';
         return;
     }
-    // Show only first 3 docs in preview
-    let html = '<div class="preview-docs-list mb-3">';
-    docs.slice(0, 3).forEach(doc => {
-        html += `<div class="text-sm border-b py-1 truncate">📄 ${doc.nama_file}</div>`;
+
+    // Mulai membuat HTML string untuk daftar dokumen
+    let html = '<div class="doc-preview-list" style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">';
+    
+    // Loop setiap dokumen untuk dibuatkan item list
+    docs.forEach((doc, index) => {
+        // Logika penentuan ikon file (FontAwesome)
+        let iconClass = 'fas fa-file';
+        let colorClass = 'text-secondary';
+        
+        if(doc.nama_file.endsWith('.pdf')) {
+            iconClass = 'fas fa-file-pdf';
+            colorClass = 'text-danger';
+        }
+        else if(doc.nama_file.match(/\.(doc|docx)$/)) {
+            iconClass = 'fas fa-file-word';
+            colorClass = 'text-primary';
+        }
+        else if(doc.nama_file.match(/\.(xls|xlsx)$/)) {
+            iconClass = 'fas fa-file-excel';
+            colorClass = 'text-success';
+        }
+        else if(doc.nama_file.match(/\.(jpg|jpeg|png)$/)) {
+            iconClass = 'fas fa-image';
+            colorClass = 'text-info';
+        }
+
+        // Tambahkan garis pembatas kecuali untuk item terakhir
+        const borderClass = index !== docs.length - 1 ? 'border-bottom: 1px solid #e5e7eb;' : '';
+        
+        // Template HTML untuk satu item dokumen (Clean & Formal Style)
+        html += `
+            <div class="doc-preview-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #fff; ${borderClass}">
+                <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
+                    <i class="${iconClass} ${colorClass}" style="font-size: 1.25em; width: 24px; text-align: center;"></i>
+                    <div style="min-width: 0; flex: 1;">
+                        <div class="text-sm font-medium text-gray-900 truncate" title="${doc.nama_file}">${doc.nama_file}</div>
+                        <div class="text-xs text-muted">${doc.tipe_dokumen || 'Dokumen'} • ${new Date(doc.created_at).toLocaleDateString('id-ID')}</div>
+                    </div>
+                </div>
+                <a href="<?= base_url('program-kerja/download-dokumen/') ?>${doc.id}" 
+                   class="btn btn-sm btn-outline-secondary" 
+                   style="margin-left: 12px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; border: 1px solid #d1d5db;">
+                    <span>Unduh</span>
+                    <i class="fas fa-download" style="font-size: 0.8em;"></i>
+                </a>
+            </div>
+        `;
     });
-    if(docs.length > 3) {
-        html += `<div class="text-xs text-muted pt-1">+ ${docs.length - 3} dokumen lainnya</div>`;
-    }
     html += '</div>';
+    
+    // Tampilkan total dokumen jika lebih dari 5
+    if (docs.length > 5) {
+        html += `<div class="text-xs text-muted mt-2 text-right">Total ${docs.length} dokumen</div>`;
+    }
+    
+    // Render ke elemen HTML
     preview.innerHTML = html;
 }
 

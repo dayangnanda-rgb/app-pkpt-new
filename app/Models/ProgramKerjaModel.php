@@ -110,18 +110,27 @@ class ProgramKerjaModel extends Model
      */
     public function ambilSemuaData($perPage = 10, $tahun = null)
     {
-        // Subquery untuk mendapatkan dokumen terbaru
+        /**
+         * Subquery untuk mendapatkan SEMUA dokumen terkait.
+         * 
+         * LOGIKA:
+         * 1. Menggunakan GROUP_CONCAT untuk menggabungkan banyak baris menjadi satu string.
+         * 2. Format string: id:nama_file:tipe_dokumen
+         * 3. Pemisah antar dokumen adalah karakter pipa '|'
+         * 4. COALESCE(tipe_dokumen, 'Dokumen') digunakan untuk menangani jika tipe_dokumen kosong/NULL,
+         *    sehingga struktur data tetap konsisten (3 bagian).
+         */
         $subQuery = $this->db->table('program_kerja_dokumen')
-            ->select('nama_file')
+            ->select("GROUP_CONCAT(CONCAT(id, ':', nama_file, ':', COALESCE(tipe_dokumen, 'Dokumen')) SEPARATOR '|')")
             ->where('program_kerja_id = program_kerja.id')
             ->orderBy('created_at', 'DESC')
-            ->limit(1)
             ->getCompiledSelect();
 
         $query = $this->select('program_kerja.*')
-                      ->select("($subQuery) as dokumen_output")
+                      ->select("($subQuery) as dokumen_output") // Injeksi subquery ke main query
                       ->orderBy('created_at', 'DESC');
         
+        // Filter berdasarkan tahun jika diminta
         if ($tahun) {
             $query->where('tahun', $tahun);
         }
@@ -139,12 +148,11 @@ class ProgramKerjaModel extends Model
      */
     public function cariProgramKerja($keyword, $perPage = 10, $tahun = null)
     {
-        // Subquery untuk mendapatkan dokumen terbaru
+        // Subquery yang sama seperti di atas untuk pencarian
         $subQuery = $this->db->table('program_kerja_dokumen')
-            ->select('nama_file')
+            ->select("GROUP_CONCAT(CONCAT(id, ':', nama_file, ':', COALESCE(tipe_dokumen, 'Dokumen')) SEPARATOR '|')")
             ->where('program_kerja_id = program_kerja.id')
             ->orderBy('created_at', 'DESC')
-            ->limit(1)
             ->getCompiledSelect();
 
         $query = $this->select('program_kerja.*')
