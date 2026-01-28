@@ -165,7 +165,7 @@
         <div class="detail-column-right">
             <!-- Section: Dokumen Output -->
             <div class="detail-section">
-                <h3 class="detail-section-title">📁 Dokumen Output</h3>
+                <h3 class="detail-section-title">Dokumen Output</h3>
                 
                 <div class="detail-item detail-item-full">
                     <div id="dokumen-list-preview">
@@ -173,10 +173,10 @@
                         <div class="text-muted text-sm mb-3">Memuat dokumen...</div>
                     </div>
                     
-                    <button type="button" class="btn btn-outline-primary w-full" onclick="bukaModalDokumen()">
-                        <span class="btn-icon">📂</span>
+                    <button type="button" class="btn btn-primary mt-3" onclick="bukaModalDokumen()">
                         Kelola Dokumen
                     </button>
+                 </div>
                     
                     <!-- Legacy support (fallback) -->
                     <?php if (!empty($program_kerja['dokumen_output'])): ?>
@@ -216,6 +216,7 @@
 
 <!-- Document Management Modal -->
 <?= $this->include('program_kerja/partials/modal_dokumen') ?>
+<?= $this->include('program_kerja/partials/modal_preview') ?>
 
 <?= $this->endSection() ?>
 
@@ -373,46 +374,31 @@ function updatePreview(docs) {
     
     // Loop setiap dokumen untuk dibuatkan item list
     docs.forEach((doc, index) => {
-        // Logika penentuan ikon file (FontAwesome)
-        let iconClass = 'fas fa-file';
-        let colorClass = 'text-secondary';
-        
-        if(doc.nama_file.endsWith('.pdf')) {
-            iconClass = 'fas fa-file-pdf';
-            colorClass = 'text-danger';
-        }
-        else if(doc.nama_file.match(/\.(doc|docx)$/)) {
-            iconClass = 'fas fa-file-word';
-            colorClass = 'text-primary';
-        }
-        else if(doc.nama_file.match(/\.(xls|xlsx)$/)) {
-            iconClass = 'fas fa-file-excel';
-            colorClass = 'text-success';
-        }
-        else if(doc.nama_file.match(/\.(jpg|jpeg|png)$/)) {
-            iconClass = 'fas fa-image';
-            colorClass = 'text-info';
-        }
+        // Use shared getFileIcon function
+        // Also prefer display_name if available
+        const fileName = doc.display_name || doc.nama_file;
+        const iconHtml = window.getFileIcon ? getFileIcon(fileName) : '<i class="fas fa-file"></i>';
 
         // Tambahkan garis pembatas kecuali untuk item terakhir
         const borderClass = index !== docs.length - 1 ? 'border-bottom: 1px solid #e5e7eb;' : '';
         
-        // Template HTML untuk satu item dokumen (Clean & Formal Style)
+        // Template HTML untuk satu item dokumen (Compact)
         html += `
-            <div class="doc-preview-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #fff; ${borderClass}">
+            <div class="doc-preview-item" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #fff; ${borderClass}">
                 <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
-                    <i class="${iconClass} ${colorClass}" style="font-size: 1.25em; width: 24px; text-align: center;"></i>
-                    <div style="min-width: 0; flex: 1;">
-                        <div class="text-sm font-medium text-gray-900 truncate" title="${doc.nama_file}">${doc.nama_file}</div>
-                        <div class="text-xs text-muted">${doc.tipe_dokumen || 'Dokumen'} • ${new Date(doc.created_at).toLocaleDateString('id-ID')}</div>
+                    <div style="font-size: 1.25em; width: 24px; text-align: center;">${iconHtml}</div>
+                    <div style="min-width: 0; flex: 1; width: 0;">
+                        <div class="text-sm font-medium text-gray-900" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;" title="${fileName}">${fileName}</div>
+                        <div class="text-xs text-muted" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${doc.tipe_dokumen || 'Dokumen'} • ${new Date(doc.created_at).toLocaleDateString('id-ID')}</div>
                     </div>
                 </div>
-                <a href="<?= base_url('program-kerja/download-dokumen/') ?>${doc.id}" 
+                <button type="button" 
+                   onclick="bukaPreview(${doc.id}, '${fileName}')"
                    class="btn btn-sm btn-outline-secondary" 
                    style="margin-left: 12px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; border: 1px solid #d1d5db;">
                     <span>Unduh</span>
                     <i class="fas fa-download" style="font-size: 0.8em;"></i>
-                </a>
+                </button>
             </div>
         `;
     });
