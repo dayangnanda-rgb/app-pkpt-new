@@ -169,14 +169,23 @@
                                                     $colorClass = 'text-info';
                                                 }
                                         ?>
-                                            <a href="<?= base_url('program-kerja/download/' . $docId) ?>" 
-                                               class="btn-dokumen-sm" 
-                                               onclick="event.stopPropagation()"
-                                               title="<?= esc($docType) ?>&#10;(<?= esc($docName) ?>)">
-                                                <i class="<?= $iconClass ?> <?= $colorClass ?> doc-icon"></i>
-                                                <span class="doc-name-truncate"><?= esc($docType) ?></span>
-                                                <i class="fas fa-download icon-download"></i>
-                                            </a>
+                                            <div class="btn-group-dokumen">
+                                                <a href="<?= base_url('program-kerja/preview/' . $docId) ?>" 
+                                                   class="btn-dokumen-action" 
+                                                   target="_blank"
+                                                   onclick="event.stopPropagation()"
+                                                   title="Preview: <?= esc($docName) ?>">
+                                                    <i class="fas fa-eye text-primary"></i>
+                                                </a>
+                                                <a href="<?= base_url('program-kerja/download/' . $docId) ?>" 
+                                                   class="btn-dokumen-main" 
+                                                   onclick="event.stopPropagation()"
+                                                   title="Download: <?= esc($docName) ?>">
+                                                    <i class="<?= $iconClass ?> <?= $colorClass ?> doc-icon"></i>
+                                                    <span class="doc-name-truncate"><?= esc($docType) ?></span>
+                                                    <i class="fas fa-download icon-download"></i>
+                                                </a>
+                                            </div>
                                         <?php endif; endforeach; ?>
                                         
                                         <?php if ($count > $limit): ?>
@@ -194,7 +203,28 @@
                                 gap: 4px;
                                 align-items: flex-start;
                             }
-                            .btn-dokumen-sm {
+                            .btn-group-dokumen {
+                                display: flex;
+                                align-items: center;
+                                gap: 4px;
+                            }
+                            .btn-dokumen-action {
+                                display: inline-flex;
+                                align-items: center;
+                                justify-content: center;
+                                width: 24px;
+                                height: 24px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 4px;
+                                background: #fff;
+                                color: #374151;
+                                transition: all 0.2s;
+                            }
+                            .btn-dokumen-action:hover {
+                                background: #eff6ff;
+                                border-color: #3b82f6;
+                            }
+                            .btn-dokumen-main {
                                 display: inline-flex;
                                 align-items: center;
                                 gap: 8px;
@@ -207,8 +237,9 @@
                                 text-decoration: none;
                                 max-width: 150px;
                                 transition: background-color 0.2s;
+                                flex-grow: 1;
                             }
-                            .btn-dokumen-sm:hover {
+                            .btn-dokumen-main:hover {
                                 background: #f9fafb;
                                 color: #111827;
                                 border-color: #6b7280;

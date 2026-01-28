@@ -274,49 +274,8 @@
 </div>
 
 <!-- Document Management Modal (Reusable) -->
-<div id="modal-dokumen" class="modal-overlay">
-    <div class="modal-container">
-        <div class="modal-header">
-            <h3 class="modal-title">Kelola Dokumen Output</h3>
-            <button type="button" class="modal-close" onclick="tutupModalDokumen()">×</button>
-        </div>
-        
-        <div class="modal-body">
-            <!-- List Section -->
-            <div id="form-doc-list" class="doc-list-container">
-                <!-- Content loaded via AJAX -->
-            </div>
-
-            <!-- Upload Section -->
-            <div class="doc-upload-section">
-                <div class="form-group mb-2">
-                    <label class="text-sm font-medium mb-1 block">Jenis Dokumen</label>
-                    <select id="ajax-tipe-dokumen" class="form-select text-sm h-9">
-                        <option value="Surat Tugas">Surat Tugas</option>
-                        <option value="Laporan">Laporan</option>
-                        <option value="Dokumen Komunikasi">Dokumen Komunikasi</option>
-                        <option value="Bukti Dukung">Bukti Dukung</option>
-                        <option value="Lainnya">Lainnya</option>
-                    </select>
-                </div>
-                <div class="form-group mb-0">
-                    <label class="text-sm font-medium mb-1 block">File</label>
-                    <div class="flex gap-2 items-center">
-                        <input type="file" id="ajax-file-input" class="form-file text-sm flex-1" multiple>
-                        <button type="button" class="btn btn-primary" onclick="uploadDokumenAjax()">Upload</button>
-                    </div>
-                    <!-- Progress Bar -->
-                    <div id="upload-progress" class="hidden mt-2">
-                        <div class="w-full bg-gray-200 rounded-full h-1.5">
-                            <div class="bg-blue-600 h-1.5 rounded-full" style="width: 0%"></div>
-                        </div>
-                        <div class="text-xs text-center mt-1 text-gray-500">Mengupload...</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Document Management Modal (Reusable) -->
+<?= $this->include('program_kerja/partials/modal_dokumen') ?>
 
 <?= $this->endSection() ?>
 
@@ -333,11 +292,13 @@
             loadPreviewDokumen();
         }
         
-        // Intercept form submit only for Add Mode to append files
         if (MODE === 'tambah') {
             const form = document.querySelector('form.form');
             form.addEventListener('submit', handleFormSubmit);
         }
+        
+        // Bind the partial's upload button handler
+        window.startUploadDokumen = uploadDokumenAjax;
     });
 
     async function handleFormSubmit(e) {
@@ -407,8 +368,8 @@
     /* --- ADD MODE: CLIENT SIDE QUEUE --- */
     
     function addToQueue() {
-        const fileInput = document.getElementById('ajax-file-input');
-        const tipeInput = document.getElementById('ajax-tipe-dokumen');
+        const fileInput = document.getElementById('dm-file');
+        const tipeInput = document.getElementById('dm-tipe');
         
         if (fileInput.files.length === 0) {
             alert('Pilih file terlebih dahulu');
@@ -427,7 +388,11 @@
         renderQueueList(); // Update list in modal
         
         // Visual feedback
-        const btn = document.querySelector('.doc-upload-section button');
+        fileInput.value = ''; 
+        renderQueueList(); // Update list in modal
+        
+        // Visual feedback
+        const btn = document.getElementById('dm-btn-upload');
         const original = btn.innerText;
         btn.innerText = '✓ Ditambahkan';
         setTimeout(() => btn.innerText = original, 1000);
@@ -454,7 +419,7 @@
     }
 
     function renderQueueList() {
-        const container = document.getElementById('form-doc-list');
+        const container = document.getElementById('dm-doc-list');
         
         if (pendingFiles.length === 0) {
             container.innerHTML = `
@@ -469,21 +434,21 @@
         let html = '<div class="space-y-2">';
         pendingFiles.forEach(item => {
              html += `
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 8px;">
-                    <div style="display: flex; align-items: center; gap: 12px; overflow: hidden; flex: 1;">
-                        <span style="font-size: 1.25rem; flex-shrink: 0;">${getFileIcon(item.file.name)}</span>
-                        <div style="min-width: 0;">
-                            <div style="font-size: 0.875rem; font-weight: 500; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.file.name}</div>
-                            <div style="font-size: 0.75rem; color: #64748b; display: flex; align-items: center; gap: 8px;">
-                                <span style="background: white; padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0; color: #2563eb;">${item.tipe}</span>
-                                <span>${(item.file.size / 1024).toFixed(1)} KB</span>
-                            </div>
-                        </div>
-                    </div>
-                    <button type="button" onclick="removeFromQueue(${item.id})" style="color: #ef4444; padding: 8px; border-radius: 4px; border: none; background: transparent; cursor: pointer;" title="Hapus">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
-                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px;">
+                     <div style="display: flex; align-items: center; gap: 12px; overflow: hidden; flex: 1;">
+                         <span style="font-size: 1.5rem; flex-shrink: 0; color: #374151;">${getFileIcon(item.file.name)}</span>
+                         <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                             <div style="font-size: 0.9rem; font-weight: 600; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${item.file.name}">${item.file.name}</div>
+                             <div style="display: flex; align-items: center; gap: 8px;">
+                                 <span style="background: #e0f2fe; padding: 2px 8px; border-radius: 4px; color: #0284c7; font-size: 0.75rem; font-weight: 500;">${item.tipe}</span>
+                                 <span style="font-size: 0.75rem; color: #9ca3af;">${(item.file.size / 1024).toFixed(1)} KB</span>
+                             </div>
+                         </div>
+                     </div>
+                     <button type="button" onclick="removeFromQueue(${item.id})" style="color: #ef4444; padding: 8px; border: none; background: transparent; cursor: pointer; transition: color 0.2s;" title="Hapus">
+                         <i class="fas fa-trash-alt"></i>
+                     </button>
+                 </div>
             `;
         });
         html += '</div>';
@@ -530,7 +495,9 @@
     async function loadDokumenForm() {
         if(MODE !== 'edit') return;
         
-        const container = document.getElementById('form-doc-list');
+        if(MODE !== 'edit') return;
+        
+        const container = document.getElementById('dm-doc-list');
         container.innerHTML = '<div class="text-center p-4 text-muted">Memuat...</div>';
 
         try {
@@ -555,9 +522,9 @@
             return;
         }
     
-        const fileInput = document.getElementById('ajax-file-input');
-        const tipeInput = document.getElementById('ajax-tipe-dokumen');
-        const progressBar = document.getElementById('upload-progress');
+        const fileInput = document.getElementById('dm-file');
+        const tipeInput = document.getElementById('dm-tipe');
+        const progressBar = document.getElementById('dm-upload-progress');
         const progressFill = progressBar.querySelector('.bg-blue-600');
 
         if (fileInput.files.length === 0) {
@@ -640,8 +607,10 @@
     }
     
     function renderFormDocList(docs) {
-         const container = document.getElementById('form-doc-list');
-         if (docs.length === 0) {
+        const container = document.getElementById('dm-doc-list');
+        if (!container) return;
+
+        if (docs.length === 0) {
             container.innerHTML = `
                 <div class="flex flex-col items-center justify-center py-6 text-gray-400 border-2 border-dashed rounded-lg">
                     <span class="text-4xl mb-2">📂</span>
@@ -653,20 +622,27 @@
 
         let html = '<div class="space-y-2">';
         docs.forEach(doc => {
+            const sizeKB = doc.size ? (doc.size / 1024).toFixed(1) + ' KB' : '';
+            // Use display_name (nama_asli) if available, fallback to nama_file
+            const fileName = doc.display_name || doc.nama_file;
+            
             html += `
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 8px;">
-                    <div style="display: flex; align-items: center; gap: 12px; overflow: hidden; flex: 1;">
-                        <span style="font-size: 1.25rem; flex-shrink: 0;">${getFileIcon(doc.nama_file)}</span>
-                        <div style="min-width: 0;">
-                            <div style="font-size: 0.875rem; font-weight: 500; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${doc.nama_file}</div>
-                            <div style="font-size: 0.75rem; color: #64748b;">${doc.tipe_dokumen}</div>
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 12px; overflow: hidden; flex: 1;">
+                    <span style="font-size: 1.5rem; flex-shrink: 0; color: #374151;">${getFileIcon(fileName)}</span>
+                    <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                        <div style="font-size: 0.9rem; font-weight: 600; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${fileName}">${fileName}</div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="background: #e0f2fe; padding: 2px 8px; border-radius: 4px; color: #0284c7; font-size: 0.75rem; font-weight: 500;">${doc.tipe_dokumen || 'Dokumen'}</span>
+                            <span style="font-size: 0.75rem; color: #9ca3af;">${sizeKB}</span>
                         </div>
                     </div>
-                    <button onclick="hapusDokumenAjax(${doc.id})" type="button" style="color: #ef4444; padding: 8px; border-radius: 4px; border: none; background: transparent; cursor: pointer;" title="Hapus">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
                 </div>
-            `;
+                <!-- Only Trash Icon -->
+                <button onclick="hapusDokumenAjax(${doc.id})" type="button" style="color: #ef4444; padding: 8px; border-radius: 4px; border: none; background: transparent; cursor: pointer; transition: color 0.2s;" title="Hapus">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>`;
         });
         html += '</div>';
         container.innerHTML = html;

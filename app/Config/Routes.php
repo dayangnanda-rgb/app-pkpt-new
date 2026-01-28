@@ -35,6 +35,7 @@ $routes->group('program-kerja', function($routes) {
     $routes->get('dokumen/(:num)', 'ProgramKerja::dokumen/$1');
     $routes->post('upload-dokumen/(:num)', 'ProgramKerja::uploadDokumen/$1');
     $routes->delete('hapus-dokumen/(:num)', 'ProgramKerja::hapusDokumen/$1');
-    $routes->get('download-dokumen/(:num)', 'ProgramKerja::download/$1');
+    $routes->get('download/(:num)', 'ProgramKerja::download/$1');
+    $routes->get('preview/(:num)', 'ProgramKerja::preview/$1'); // Added preview route
     $routes->get('export-excel', 'ProgramKerja::exportExcel');
 });

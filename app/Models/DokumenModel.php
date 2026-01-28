@@ -15,6 +15,7 @@ class DokumenModel extends Model
     protected $allowedFields    = [
         'program_kerja_id',
         'nama_file',
+        'nama_asli',
         'tipe_dokumen',
         'created_at',
         'updated_at'
@@ -30,6 +31,7 @@ class DokumenModel extends Model
     protected $validationRules      = [
         'program_kerja_id' => 'required|integer',
         'nama_file'        => 'required|max_length[255]',
+        'nama_asli'        => 'permit_empty|max_length[255]',
         'tipe_dokumen'     => 'permit_empty|max_length[50]',
     ];
     protected $validationMessages   = [];

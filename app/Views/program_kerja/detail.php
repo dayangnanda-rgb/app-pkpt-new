@@ -215,42 +215,7 @@
 </div>
 
 <!-- Document Management Modal -->
-<div id="modal-dokumen" class="modal-overlay">
-    <div class="modal-container">
-        <div class="modal-header">
-            <h3 class="modal-title">Kelola Dokumen Output</h3>
-            <button class="modal-close" onclick="tutupModalDokumen()">×</button>
-        </div>
-        
-        <div class="modal-body">
-            <!-- List Section -->
-            <div id="modal-doc-list" class="doc-list-container">
-                <!-- Content loaded via AJAX -->
-            </div>
-
-            <!-- Upload Section -->
-            <div class="doc-upload-section">
-                <div class="form-group mb-2">
-                    <label class="text-sm font-medium mb-1 block">Jenis Dokumen</label>
-                    <select id="upload-tipe" class="form-select text-sm h-9">
-                        <option value="Surat Tugas">Surat Tugas</option>
-                        <option value="Laporan">Laporan</option>
-                        <option value="Dokumen Komunikasi">Dokumen Komunikasi</option>
-                        <option value="Bukti Dukung">Bukti Dukung</option>
-                        <option value="Lainnya">Lainnya</option>
-                    </select>
-                </div>
-                <div class="form-group mb-0">
-                    <label class="text-sm font-medium mb-1 block">File</label>
-                    <div class="flex gap-2">
-                        <input type="file" id="upload-file" class="form-file text-sm flex-1">
-                        <button id="btn-upload" class="btn btn-primary" onclick="uploadDokumen()">Upload</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+<?= $this->include('program_kerja/partials/modal_dokumen') ?>
 
 <?= $this->endSection() ?>
 
@@ -282,6 +247,22 @@ function konfirmasiHapus(id, namaKegiatan) {
 // --- DOCUMENT MANAGEMENT JS ---
 const PROGRAM_ID = <?= $program_kerja['id'] ?>;
 
+function getFileIcon(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    let icon = 'fa-file'; 
+    let color = 'text-gray-500';
+
+    switch(ext) {
+        case 'pdf': icon = 'fa-file-pdf'; color = 'text-red-500'; break;
+        case 'doc': case 'docx': icon = 'fa-file-word'; color = 'text-blue-500'; break;
+        case 'xls': case 'xlsx': icon = 'fa-file-excel'; color = 'text-green-500'; break;
+        case 'ppt': case 'pptx': icon = 'fa-file-powerpoint'; color = 'text-orange-500'; break;
+        case 'jpg': case 'jpeg': case 'png': icon = 'fa-file-image'; color = 'text-purple-500'; break;
+        case 'zip': case 'rar': icon = 'fa-file-archive'; color = 'text-yellow-500'; break;
+    }
+    return `<i class="fas ${icon} ${color}"></i>`;
+}
+
 function bukaModalDokumen() {
     document.getElementById('modal-dokumen').classList.add('show');
     loadDokumen();
@@ -292,7 +273,7 @@ function tutupModalDokumen() {
 }
 
 async function loadDokumen() {
-    const container = document.getElementById('modal-doc-list');
+    const container = document.getElementById('dm-doc-list');
     const preview = document.getElementById('dokumen-list-preview');
     
     // Only update modal container if it exists (modal might not be rendered yet)
@@ -333,41 +314,42 @@ async function loadDokumen() {
 }
 
 function renderDocList(docs) {
-    const container = document.getElementById('modal-doc-list');
+    const container = document.getElementById('dm-doc-list');
     if (docs.length === 0) {
         container.innerHTML = `
-            <div class="empty-state-small py-5">
-                <span class="empty-icon text-3xl">📂</span>
-                <p class="text-muted mt-2">Belum ada dokumen yang diunggah</p>
+            <div class="flex flex-col items-center justify-center py-6 text-gray-400 border-2 border-dashed rounded-lg">
+                <span class="text-4xl mb-2">📂</span>
+                <span class="text-sm">Belum ada dokumen yang diunggah</span>
             </div>
         `;
         return;
     }
 
-    let html = '';
+    let html = '<div class="space-y-2">';
     docs.forEach(doc => {
-        let icon = '📄';
-        if(doc.nama_file.endsWith('.pdf')) icon = '📕';
-        else if(doc.nama_file.endsWith('.doc') || doc.nama_file.endsWith('.docx')) icon = '📘';
-        else if(doc.nama_file.endsWith('.xls') || doc.nama_file.endsWith('.xlsx')) icon = '📗';
+        const sizeKB = doc.size ? (doc.size / 1024).toFixed(1) + ' KB' : '';
+        const fileName = doc.display_name || doc.nama_file;
 
         html += `
-            <div class="doc-list-item">
-                <div class="doc-icon">${icon}</div>
-                <div class="doc-info">
-                    <div class="doc-name">${doc.nama_file}</div>
-                    <div class="doc-meta">
-                        <span class="doc-badge">${doc.tipe_dokumen || 'Dokumen'}</span>
-                        <span class="doc-date">• ${new Date(doc.created_at).toLocaleDateString('id-ID')}</span>
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 12px; overflow: hidden; flex: 1;">
+                    <span style="font-size: 1.5rem; flex-shrink: 0; color: #374151;">${getFileIcon(fileName)}</span>
+                    <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                        <div style="font-size: 0.9rem; font-weight: 600; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${fileName}">${fileName}</div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="background: #e0f2fe; padding: 2px 8px; border-radius: 4px; color: #0284c7; font-size: 0.75rem; font-weight: 500;">${doc.tipe_dokumen || 'Dokumen'}</span>
+                            <span style="font-size: 0.75rem; color: #9ca3af;">${sizeKB}</span>
+                        </div>
                     </div>
                 </div>
-                <div class="doc-actions">
-                    <a href="<?= base_url('program-kerja/download-dokumen/') ?>${doc.id}" class="btn-icon-sm" title="Download">⬇</a>
-                    <button onclick="hapusDokumen(${doc.id})" class="btn-icon-sm text-danger" title="Hapus">🗑</button>
-                </div>
+                <!-- Only Trash Icon -->
+                <button onclick="hapusDokumen(${doc.id})" type="button" style="color: #ef4444; padding: 8px; border-radius: 4px; border: none; background: transparent; cursor: pointer; transition: color 0.2s;" title="Hapus">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
             </div>
         `;
     });
+    html += '</div>';
     container.innerHTML = html;
 }
 
@@ -446,9 +428,9 @@ function updatePreview(docs) {
 }
 
 async function uploadDokumen() {
-    const fileInput = document.getElementById('upload-file');
-    const tipeInput = document.getElementById('upload-tipe');
-    const btn = document.getElementById('btn-upload');
+    const fileInput = document.getElementById('dm-file');
+    const tipeInput = document.getElementById('dm-tipe');
+    const btn = document.getElementById('dm-btn-upload');
 
     if (!fileInput.files[0]) {
         alert('Pilih file terlebih dahulu');
@@ -515,6 +497,7 @@ async function hapusDokumen(id) {
 // Load preview on start
 document.addEventListener('DOMContentLoaded', () => {
     loadDokumen();
+    window.startUploadDokumen = uploadDokumen;
 });
 </script>
 <?= $this->endSection() ?>
