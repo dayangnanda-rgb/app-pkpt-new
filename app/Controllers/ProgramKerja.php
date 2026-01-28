@@ -209,9 +209,11 @@ class ProgramKerja extends BaseController
                             $tipe = $tipeDokumenInput;
                         }
 
+
                         $this->dokumenModel->insert([
                             'program_kerja_id' => $newId,
                             'nama_file'        => $namaFile,
+                            'nama_asli'        => $file->getClientName(),
                             'tipe_dokumen'     => $tipe
                         ]);
                     }
@@ -304,6 +306,7 @@ class ProgramKerja extends BaseController
                         $this->dokumenModel->insert([
                             'program_kerja_id' => $id,
                             'nama_file'        => $namaFile,
+                            'nama_asli'        => $file->getClientName(),
                             'tipe_dokumen'     => 'Lampiran'
                         ]);
                     }
@@ -421,9 +424,18 @@ class ProgramKerja extends BaseController
                                      ->orderBy('created_at', 'DESC')
                                      ->findAll();
         
+        $data = [];
+        foreach ($dokumen as $doc) {
+            $path = WRITEPATH . 'uploads/dokumen_output/' . $doc['nama_file'];
+            $doc['size'] = file_exists($path) ? filesize($path) : 0;
+            // Use nama_asli if available, otherwise nama_file
+            $doc['display_name'] = !empty($doc['nama_asli']) ? $doc['nama_asli'] : $doc['nama_file'];
+            $data[] = $doc;
+        }
+        
         return $this->response->setJSON([
             'sukses' => true,
-            'data'   => $dokumen
+            'data'   => $data
         ]);
     }
 
@@ -450,6 +462,7 @@ class ProgramKerja extends BaseController
         $this->dokumenModel->insert([
             'program_kerja_id' => $id,
             'nama_file'       => $namaFile,
+            'nama_asli'       => $file->getClientName(),
             'tipe_dokumen'    => $tipe
         ]);
 
@@ -493,6 +506,30 @@ class ProgramKerja extends BaseController
         }
 
         return $this->response->download($path, null); 
+    }
+
+    /**
+     * Preview dokumen (Inline View)
+     */
+    public function preview($id)
+    {
+        $dokumen = $this->dokumenModel->find($id);
+        if (!$dokumen) {
+            return redirect()->back()->with('gagal', 'Dokumen tidak ditemukan');
+        }
+
+        $path = WRITEPATH . 'uploads/dokumen_output/' . $dokumen['nama_file'];
+        if (!file_exists($path)) {
+            return redirect()->back()->with('gagal', 'File fisik tidak ditemukan');
+        }
+
+        $mime = mime_content_type($path);
+        
+        // For inline viewing, we set headers manually
+        return $this->response
+            ->setHeader('Content-Type', $mime)
+            ->setHeader('Content-Disposition', 'inline; filename="' . $dokumen['nama_file'] . '"')
+            ->setBody(file_get_contents($path));
     }
     /**
      * Ekspor seluruh data program kerja ke Excel (.xlsx) dengan format profesional
