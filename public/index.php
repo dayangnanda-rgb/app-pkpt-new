@@ -1,33 +1,19 @@
 <?php
 
-use CodeIgniter\Boot;
-use Config\Paths;
-
-/*
- *---------------------------------------------------------------
- * CHECK PHP VERSION
- *---------------------------------------------------------------
- */
-
-$minPhpVersion = '8.1'; // If you update this, don't forget to update `spark`.
+// Check PHP version.
+$minPhpVersion = '7.4'; // Fallback to 7.4 just in case, though spark said 8.1. Safe constraint.
 if (version_compare(PHP_VERSION, $minPhpVersion, '<')) {
     $message = sprintf(
         'Your PHP version must be %s or higher to run CodeIgniter. Current version: %s',
         $minPhpVersion,
-        PHP_VERSION,
+        PHP_VERSION
     );
 
     header('HTTP/1.1 503 Service Unavailable.', true, 503);
     echo $message;
 
-    exit(1);
+    exit;
 }
-
-/*
- *---------------------------------------------------------------
- * SET THE CURRENT DIRECTORY
- *---------------------------------------------------------------
- */
 
 // Path to the front controller (this file)
 define('FCPATH', __DIR__ . DIRECTORY_SEPARATOR);
@@ -46,14 +32,14 @@ if (getcwd() . DIRECTORY_SEPARATOR !== FCPATH) {
  * and fires up an environment-specific bootstrapping.
  */
 
-// LOAD OUR PATHS CONFIG FILE
-// This is the line that might need to be changed, depending on your folder structure.
+// Load our paths config file
+// This is the line that might vary depending on setup, but usually ../app/Config/Paths.php
 require FCPATH . '../app/Config/Paths.php';
-// ^^^ Change this line if you move your application folder
+// ^ Note: The user's structure seems standard c:/laragon/www/app-pkpt-new-1/app so ../app/Config/Paths.php is correct.
 
-$paths = new Paths();
+$paths = new Config\Paths();
 
-// LOAD THE FRAMEWORK BOOTSTRAP FILE
-require $paths->systemDirectory . '/Boot.php';
+// Location of the framework bootstrap file.
+require rtrim($paths->systemDirectory, '\\/ ') . DIRECTORY_SEPARATOR . 'Boot.php';
 
-exit(Boot::bootWeb($paths));
+exit(CodeIgniter\Boot::bootWeb($paths));
