@@ -216,6 +216,9 @@ class ProgramKerja extends BaseController
             'anggaran'           => $this->request->getPost('anggaran'),
             'realisasi_kegiatan' => $this->request->getPost('realisasi_kegiatan'),
             'pelaksana'          => $this->request->getPost('pelaksana'),
+            'pengendali_teknis'  => $this->request->getPost('pengendali_teknis'),
+            'ketua_tim'          => $this->request->getPost('ketua_tim'),
+            'anggota_tim'        => $this->request->getPost('anggota_tim'),
             'realisasi_anggaran' => $this->request->getPost('realisasi_anggaran') ?? 0,
             'sasaran_strategis'  => $this->request->getPost('sasaran_strategis'),
             'status'             => $status,
@@ -331,6 +334,9 @@ class ProgramKerja extends BaseController
             'anggaran'           => $this->request->getPost('anggaran'),
             'realisasi_kegiatan' => $this->request->getPost('realisasi_kegiatan'),
             'pelaksana'          => $this->request->getPost('pelaksana'),
+            'pengendali_teknis'  => $this->request->getPost('pengendali_teknis'),
+            'ketua_tim'          => $this->request->getPost('ketua_tim'),
+            'anggota_tim'        => $this->request->getPost('anggota_tim'),
             'realisasi_anggaran' => $this->request->getPost('realisasi_anggaran') ?? 0,
             'sasaran_strategis'  => $this->request->getPost('sasaran_strategis'),
             'status'             => $status,
@@ -708,7 +714,18 @@ class ProgramKerja extends BaseController
             $sheet->setCellValue('G' . $rowIdx, $row['rencana_kegiatan']);
             $sheet->setCellValue('H' . $rowIdx, $row['anggaran']);
             $sheet->setCellValue('I' . $rowIdx, $row['realisasi_kegiatan']);
-            $sheet->setCellValue('J' . $rowIdx, $row['pelaksana']);
+            $pelaksanaParts = [];
+            if (!empty($row['pengendali_teknis'])) $pelaksanaParts[] = "PT: " . $row['pengendali_teknis'];
+            
+            $ketuaText = $row['ketua_tim'] ?: $row['pelaksana'];
+            if (!empty($ketuaText)) $pelaksanaParts[] = "KT: " . $ketuaText;
+            
+            if (!empty($row['anggota_tim'])) $pelaksanaParts[] = "Anggota: " . str_replace(["\r\n", "\n", "\r"], ", ", $row['anggota_tim']);
+            
+            $pelaksanaText = implode("\n", $pelaksanaParts) ?: '-';
+
+            $sheet->setCellValue('J' . $rowIdx, $pelaksanaText);
+            $sheet->getStyle('J' . $rowIdx)->getAlignment()->setWrapText(true);
             $sheet->setCellValue('K' . $rowIdx, $dokumenText);
             $sheet->getStyle('K' . $rowIdx)->getAlignment()->setWrapText(true); // Wrap text for documents
             $sheet->setCellValue('L' . $rowIdx, $row['realisasi_anggaran']);

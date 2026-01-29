@@ -33,6 +33,9 @@ class ProgramKerjaModel extends Model
         'anggaran',
         'realisasi_kegiatan',
         'pelaksana',
+        'pengendali_teknis',
+        'ketua_tim',
+        'anggota_tim',
         'dokumen_output',
         'realisasi_anggaran',
         'sasaran_strategis',
@@ -296,7 +299,7 @@ class ProgramKerjaModel extends Model
         $totalRealisasi = $this->hitungTotalRealisasi();
         
         if ($totalAnggaran > 0) {
-            return round(($totalRealisasi / $totalAnggaran) * 100, 2);
+            return round(($totalRealisasi / $totalAnggaran) * 100, 0);
         }
         
         return 0;
@@ -314,7 +317,7 @@ class ProgramKerjaModel extends Model
         $totalCore = $terlaksana + $tidakTerlaksana;
         
         if ($totalCore > 0) {
-            return round(($terlaksana / $totalCore) * 100, 2);
+            return round(($terlaksana / $totalCore) * 100, 0);
         }
         
         return 0;
@@ -332,7 +335,7 @@ class ProgramKerjaModel extends Model
         $terlaksana = $this->where('status', 'Terlaksana')->countAllResults();
         
         if ($totalProgram > 0) {
-            return round(($terlaksana / $totalProgram) * 100, 2);
+            return round(($terlaksana / $totalProgram) * 100, 0);
         }
         
         return 0;

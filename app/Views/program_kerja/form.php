@@ -116,21 +116,34 @@
                     </div>
                 </div>
 
-                <!-- Pelaksana -->
-                <div class="form-group">
-                    <label for="pelaksana" class="form-label">
-                        Pelaksana/PIC
-                    </label>
-                    <input 
-                        type="text" 
-                        id="pelaksana" 
-                        name="pelaksana" 
-                        class="form-input bg-gray-100"
-                        value="<?= old('pelaksana', $defaultPelaksana ?? ($program_kerja['pelaksana'] ?? '')) ?>"
-                        maxlength="255"
-                        placeholder="Nama pelaksana atau PIC"
-                        readonly
-                    >
+                <!-- Pelaksana Section -->
+                <div class="form-group-full" style="grid-column: span 2; margin-top: 10px;">
+                    <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                        <h4 style="margin: 0 0 15px 0; color: #1e293b; font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-users" style="color: #1a2a44;"></i> Tim Pelaksana
+                        </h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="pengendali_teknis" class="form-label">Pengendali Teknis</label>
+                                <input type="text" id="pengendali_teknis" name="pengendali_teknis" class="form-input"
+                                    value="<?= old('pengendali_teknis', $program_kerja['pengendali_teknis'] ?? '') ?>"
+                                    placeholder="Nama Pengendali Teknis">
+                            </div>
+                            <div class="form-group">
+                                <label for="ketua_tim" class="form-label">Ketua Tim</label>
+                                <input type="text" id="ketua_tim" name="ketua_tim" class="form-input"
+                                    value="<?= old('ketua_tim', $program_kerja['ketua_tim'] ?? ($defaultPelaksana ?? '')) ?>"
+                                    placeholder="Nama Ketua Tim">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top: 15px; margin-bottom: 0;">
+                            <label for="anggota_tim" class="form-label">Anggota Tim</label>
+                            <textarea id="anggota_tim" name="anggota_tim" class="form-input" rows="3" 
+                                placeholder="Masukkan nama anggota tim (pisahkan dengan koma atau baris baru)"><?= old('anggota_tim', $program_kerja['anggota_tim'] ?? '') ?></textarea>
+                        </div>
+                        <!-- Hidden pelaksana for backward compatibility/internal reference -->
+                        <input type="hidden" name="pelaksana" value="<?= old('pelaksana', $program_kerja['pelaksana'] ?? ($defaultPelaksana ?? '')) ?>">
+                    </div>
                 </div>
             </div>
         </div>

@@ -123,7 +123,21 @@
                             <td class="td-realisasi-kegiatan">
                                 <div class="cell-content"><?= esc($pk['realisasi_kegiatan']) ?: '-' ?></div>
                             </td>
-                            <td class="td-pelaksana"><?= esc($pk['pelaksana']) ?: '-' ?></td>
+                            <td class="td-pelaksana">
+                                <div class="cell-content" style="font-size: 0.85rem; line-height: 1.4;">
+                                    <?php if (!empty($pk['pengendali_teknis'])): ?>
+                                        <div title="Pengendali Teknis"><span class="text-muted" style="font-size: 0.7rem; font-weight: bold;">PT:</span> <?= esc($pk['pengendali_teknis']) ?></div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($pk['ketua_tim'])): ?>
+                                        <div title="Ketua Tim"><span class="text-muted" style="font-size: 0.7rem; font-weight: bold;">KT:</span> <?= esc($pk['ketua_tim']) ?></div>
+                                    <?php elseif (!empty($pk['pelaksana'])): ?>
+                                        <div title="Pelaksana/Ketua Tim"><span class="text-muted" style="font-size: 0.7rem; font-weight: bold;">KT:</span> <?= esc($pk['pelaksana']) ?></div>
+                                    <?php endif; ?>
+                                    <?php if (empty($pk['pengendali_teknis']) && empty($pk['ketua_tim']) && empty($pk['pelaksana'])): ?>
+                                        <span class="text-muted">-</span>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
                             <td class="td-dokumen">
                                 <?php if (!empty($pk['dokumen_output'])): ?>
                                     <div class="doc-list-stack">

@@ -229,7 +229,7 @@ function createUnifiedStatusChart(distribution) {
                         label: function (context) {
                             const value = context.parsed.y || 0;
                             const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
                             return `Jumlah: ${value} (${percentage}% dari Total)`;
                         }
                     }

@@ -71,10 +71,23 @@
                         </div>
                     </div>
 
-                    <div class="detail-item">
-                        <label class="detail-label">Pelaksana/PIC</label>
-                        <div class="detail-value">
-                            <?= !empty($program_kerja['pelaksana']) ? esc($program_kerja['pelaksana']) : '<span class="text-muted">-</span>' ?>
+                    <div class="detail-item detail-item-full" style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 10px;">
+                        <label class="detail-label" style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-weight: 700; color: #1a2a44;">
+                            <i class="fas fa-users"></i> Tim Pelaksana
+                        </label>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                            <div>
+                                <label class="detail-label" style="font-size: 0.75rem; color: #64748b; text-transform: uppercase;">Pengendali Teknis</label>
+                                <div class="detail-value"><?= !empty($program_kerja['pengendali_teknis']) ? esc($program_kerja['pengendali_teknis']) : '<span class="text-muted">-</span>' ?></div>
+                            </div>
+                            <div>
+                                <label class="detail-label" style="font-size: 0.75rem; color: #64748b; text-transform: uppercase;">Ketua Tim</label>
+                                <div class="detail-value"><?= !empty($program_kerja['ketua_tim']) ? esc($program_kerja['ketua_tim']) : (!empty($program_kerja['pelaksana']) ? esc($program_kerja['pelaksana']) : '<span class="text-muted">-</span>') ?></div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px;">
+                            <label class="detail-label" style="font-size: 0.75rem; color: #64748b; text-transform: uppercase;">Anggota Tim</label>
+                            <div class="detail-value detail-value-text"><?= !empty($program_kerja['anggota_tim']) ? nl2br(esc($program_kerja['anggota_tim'])) : '<span class="text-muted">-</span>' ?></div>
                         </div>
                     </div>
                 </div>

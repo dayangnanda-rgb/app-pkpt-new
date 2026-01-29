@@ -39,7 +39,7 @@
             <i class="fas fa-chart-line"></i>
         </div>
         <div class="stat-info">
-            <h3><?= number_format($statistik['persentase_realisasi'], 2) ?>%</h3>
+            <h3><?= number_format($statistik['persentase_realisasi'], 0) ?>%</h3>
             <p>Realisasi Anggaran</p>
             <div class="progress-bar">
                 <div class="progress-fill" style="width: <?= $statistik['persentase_realisasi'] ?>%"></div>
@@ -52,7 +52,7 @@
             <i class="fas fa-bullseye"></i>
         </div>
         <div class="stat-info">
-            <h3><?= number_format($statistik['persentase_capaian'], 2) ?>%</h3>
+            <h3><?= number_format($statistik['persentase_capaian'], 0) ?>%</h3>
             <p>Capaian PKPT Utama</p>
             <div class="progress-bar">
                 <div class="progress-fill" style="width: <?= $statistik['persentase_capaian'] ?>%"></div>
@@ -65,7 +65,7 @@
             <i class="fas fa-award"></i>
         </div>
         <div class="stat-info">
-            <h3><?= number_format($statistik['persentase_pelaksanaan'], 2) ?>%</h3>
+            <h3><?= number_format($statistik['persentase_pelaksanaan'], 0) ?>%</h3>
             <p>Realisasi Pelaksanaan</p>
             <div class="progress-bar">
                 <div class="progress-fill" style="background: #FAC70B; width: <?= $statistik['persentase_pelaksanaan'] ?>%"></div>
