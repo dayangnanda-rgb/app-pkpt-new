@@ -94,6 +94,13 @@
                                 <span class="badge badge-<?= strtolower(str_replace(' ', '-', $program_kerja['status'])) ?>">
                                     <?= esc($program_kerja['status']) ?>
                                 </span>
+                                
+                                <?php if (($program_kerja['status'] == 'Tidak Terlaksana' || $program_kerja['status'] == 'Dibatalkan') && !empty($program_kerja['alasan_tidak_terlaksana'])): ?>
+                                    <div class="mt-2 p-3 bg-red-50 border-l-4 border-red-500 rounded text-sm text-red-700">
+                                        <strong>Alasan:</strong><br>
+                                        <?= nl2br(esc($program_kerja['alasan_tidak_terlaksana'])) ?>
+                                    </div>
+                                <?php endif; ?>
                             <?php else: ?>
                                 <span class="text-muted">-</span>
                             <?php endif; ?>

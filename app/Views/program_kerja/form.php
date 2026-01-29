@@ -258,6 +258,23 @@
                         <option value="Dibatalkan" <?= (old('status', $program_kerja['status'] ?? '') == 'Dibatalkan') ? 'selected' : '' ?>>Dibatalkan</option>
                     </select>
                 </div>
+
+                <!-- Alasan Tidak Terlaksana (Conditional) -->
+                <div id="group-alasan" class="form-group" style="display: <?= (old('status', $program_kerja['status'] ?? '') == 'Tidak Terlaksana') ? 'block' : 'none' ?>; grid-column: 1 / -1;">
+                    <label for="alasan_tidak_terlaksana" class="form-label">
+                        Alasan Tidak Terlaksana <span class="required">*</span>
+                    </label>
+                    <textarea 
+                        id="alasan_tidak_terlaksana" 
+                        name="alasan_tidak_terlaksana" 
+                        class="form-textarea"
+                        rows="3"
+                        placeholder="Berikan alasan mengapa kegiatan ini tidak terlaksana atau dibatalkan"
+                    ><?= old('alasan_tidak_terlaksana', $program_kerja['alasan_tidak_terlaksana'] ?? '') ?></textarea>
+                    <div id="error-alasan" class="text-xs text-red-500 mt-1" style="display: none;">
+                        <i class="fas fa-exclamation-circle mr-1"></i> Alasan wajib diisi untuk status ini.
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -288,13 +305,32 @@
     let pendingFiles = [];
 
     document.addEventListener('DOMContentLoaded', () => {
+        // Toggle Alasan Tidak Terlaksana
+        const statusSelect = document.getElementById('status');
+        const groupAlasan = document.getElementById('group-alasan');
+        const inputAlasan = document.getElementById('alasan_tidak_terlaksana');
+
+        if (statusSelect) {
+            statusSelect.addEventListener('change', function() {
+                if (this.value === 'Tidak Terlaksana' || this.value === 'Dibatalkan') {
+                    groupAlasan.style.display = 'block';
+                    inputAlasan.setAttribute('required', 'required');
+                } else {
+                    groupAlasan.style.display = 'none';
+                    inputAlasan.removeAttribute('required');
+                    inputAlasan.value = ''; // CLEAR THE VALUE
+                    document.getElementById('error-alasan').style.display = 'none';
+                }
+            });
+        }
+
+        const form = document.querySelector('form.form');
+        if (form) {
+            form.addEventListener('submit', handleFormSubmit);
+        }
+
         if (MODE === 'edit') {
             loadPreviewDokumen();
-        }
-        
-        if (MODE === 'tambah') {
-            const form = document.querySelector('form.form');
-            form.addEventListener('submit', handleFormSubmit);
         }
         
         // Bind the partial's upload button handler
@@ -302,6 +338,18 @@
     });
 
     async function handleFormSubmit(e) {
+        // Form Validation for Alasan Tidak Terlaksana
+        const status = document.getElementById('status').value;
+        const alasan = document.getElementById('alasan_tidak_terlaksana').value.trim();
+        const errorMsg = document.getElementById('error-alasan');
+
+        if ((status === 'Tidak Terlaksana' || status === 'Dibatalkan') && alasan === '') {
+            e.preventDefault();
+            errorMsg.style.display = 'block';
+            document.getElementById('alasan_tidak_terlaksana').focus();
+            return;
+        }
+
         if (pendingFiles.length === 0) return; // Normal submit if no files
         
         e.preventDefault();

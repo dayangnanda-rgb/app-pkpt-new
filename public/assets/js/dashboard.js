@@ -143,7 +143,9 @@ function initializeCharts() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                createStatusChart(data.data.status_distribution);
+                // createStatusChart(data.data.status_distribution.core);
+                // createAdditionalStatusChart(data.data.status_distribution.additional);
+                createUnifiedStatusChart(data.data.status_distribution); // New Unified Chart
                 createBudgetChart(data.data.budget_comparison);
                 createTrendChart(data.data.monthly_trend);
             }
@@ -151,55 +153,84 @@ function initializeCharts() {
         .catch(error => console.error('Chart error:', error));
 }
 
-/**
- * Create Status Distribution Chart (Pie)
- */
+/*
 function createStatusChart(data) {
-    const ctx = document.getElementById('statusChart');
+    // Disabled (moved to createUnifiedStatusChart)
+}
+*/
+
+/*
+function createAdditionalStatusChart(data) {
+    // Disabled (moved to createUnifiedStatusChart)
+}
+*/
+
+/**
+ * Create Unified Status Distribution Chart (Bar / Polygon Style)
+ */
+function createUnifiedStatusChart(distribution) {
+    const ctx = document.getElementById('unifiedStatusChart');
     if (!ctx) return;
 
-    if (charts.statusChart) {
-        charts.statusChart.destroy();
+    if (charts.unifiedChart) {
+        charts.unifiedChart.destroy();
     }
 
-    charts.statusChart = new Chart(ctx, {
-        type: 'pie',
+    const labels = [];
+    const counts = [];
+    const colors = [];
+
+    // Combine and category-sort labels
+    const core = distribution.core;
+    const additional = distribution.additional;
+
+    // Core PKPT
+    core.labels.forEach((label, i) => {
+        labels.push(label);
+        counts.push(core.data[i]);
+        const l = label.toLowerCase();
+        if (l.includes('terlaksana') && !l.includes('tidak')) colors.push('#10b981'); // Green
+        else if (l.includes('tidak')) colors.push('#ef4444'); // Red
+        else colors.push('#94a3b8'); // Gray
+    });
+
+    // Additional Tasks
+    additional.labels.forEach((label, i) => {
+        labels.push(label);
+        counts.push(additional.data[i]);
+        colors.push('#FAC70B'); // Yellow/Gold
+    });
+
+    charts.unifiedChart = new Chart(ctx, {
+        type: 'bar',
         data: {
-            labels: data.labels,
+            labels: labels,
             datasets: [{
-                data: data.data,
-                backgroundColor: data.labels.map(label => {
-                    const l = label.toLowerCase();
-                    if (l.includes('terlaksana') && !l.includes('tidak')) return '#10b981'; // Green
-                    if (l.includes('tidak terlaksana')) return '#ef4444'; // Red
-                    if (l.includes('penugasan')) return '#FAC70B'; // Yellow/Gold
-                    return '#94a3b8'; // Default gray
-                }),
-                borderWidth: 0,
-                hoverOffset: 15
+                label: 'Jumlah Kegiatan',
+                data: counts,
+                backgroundColor: colors,
+                borderRadius: 8,
+                barPercentage: 0.6
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 }
+                }
+            },
             plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        padding: 15,
-                        font: {
-                            size: 12
-                        }
-                    }
-                },
+                legend: { display: false },
                 tooltip: {
                     callbacks: {
                         label: function (context) {
-                            const label = context.label || '';
-                            const value = context.parsed || 0;
+                            const value = context.parsed.y || 0;
                             const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentage = ((value / total) * 100).toFixed(1);
-                            return `${label}: ${value} (${percentage}%)`;
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return `Jumlah: ${value} (${percentage}% dari Total)`;
                         }
                     }
                 }
@@ -207,6 +238,7 @@ function createStatusChart(data) {
         }
     });
 }
+
 
 /**
  * Create Budget Comparison Chart (Bar)

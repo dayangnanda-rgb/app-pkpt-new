@@ -40,9 +40,35 @@
         </div>
         <div class="stat-info">
             <h3><?= number_format($statistik['persentase_realisasi'], 2) ?>%</h3>
-            <p>Persentase Realisasi</p>
+            <p>Realisasi Anggaran</p>
             <div class="progress-bar">
                 <div class="progress-fill" style="width: <?= $statistik['persentase_realisasi'] ?>%"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card card-capaian">
+        <div class="stat-icon">
+            <i class="fas fa-bullseye"></i>
+        </div>
+        <div class="stat-info">
+            <h3><?= number_format($statistik['persentase_capaian'], 2) ?>%</h3>
+            <p>Capaian PKPT Utama</p>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: <?= $statistik['persentase_capaian'] ?>%"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card card-kinerja">
+        <div class="stat-icon">
+            <i class="fas fa-award"></i>
+        </div>
+        <div class="stat-info">
+            <h3><?= number_format($statistik['persentase_pelaksanaan'], 2) ?>%</h3>
+            <p>Realisasi Pelaksanaan</p>
+            <div class="progress-bar">
+                <div class="progress-fill" style="background: #FAC70B; width: <?= $statistik['persentase_pelaksanaan'] ?>%"></div>
             </div>
         </div>
     </div>
@@ -65,15 +91,37 @@
         </div>
     </div>
 
-    <!-- Charts Section -->
+    <!-- Distribusi Status (Unified Chart - NEW) -->
     <div class="dashboard-card charts-section">
         <div class="card-header">
-            <h2><i class="fas fa-chart-pie"></i> Distribusi Status Program</h2>
+            <h2><i class="fas fa-chart-bar"></i> Distribusi Status Kegiatan</h2>
+        </div>
+        <div class="card-body">
+            <canvas id="unifiedStatusChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Original Charts (Disabled/Hidden)
+    <div class="dashboard-card charts-section">
+        <div class="card-header">
+            <h2><i class="fas fa-chart-pie"></i> Capaian PKPT Utama</h2>
         </div>
         <div class="card-body">
             <canvas id="statusChart"></canvas>
         </div>
     </div>
+    -->
+
+    <!-- Penugasan Tambahan (Disabled/Hidden)
+    <div class="dashboard-card charts-section">
+        <div class="card-header">
+            <h2><i class="fas fa-chart-bar"></i> Penugasan Tambahan</h2>
+        </div>
+        <div class="card-body">
+            <canvas id="additionalStatusChart"></canvas>
+        </div>
+    </div>
+    -->
 
     <div class="dashboard-card charts-section">
         <div class="card-header">
@@ -82,7 +130,7 @@
         <div class="card-body">
             <canvas id="budgetChart"></canvas>
         </div>
-    </div>
+    </div> 
 
     <div class="dashboard-card charts-section full-width">
         <div class="card-header">

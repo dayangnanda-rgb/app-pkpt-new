@@ -27,7 +27,9 @@
 .stat-card.card-total,
 .stat-card.card-budget,
 .stat-card.card-realization,
-.stat-card.card-percentage {
+.stat-card.card-percentage,
+.stat-card.card-capaian,
+.stat-card.card-kinerja {
     background: linear-gradient(135deg, #1a2a44 0%, #1a2a44 30%, #ffffff 120%);
     color: white;
 }

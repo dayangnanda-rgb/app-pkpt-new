@@ -36,7 +36,8 @@ class ProgramKerjaModel extends Model
         'dokumen_output',
         'realisasi_anggaran',
         'sasaran_strategis',
-        'status'
+        'status',
+        'alasan_tidak_terlaksana'
     ];
 
     // Dates
@@ -79,9 +80,9 @@ class ProgramKerjaModel extends Model
             ]
         ],
         'status' => [
-            'rules'  => 'permit_empty|in_list[Terlaksana,Tidak Terlaksana,Penugasan Tambahan]',
+            'rules'  => 'permit_empty|in_list[Terlaksana,Tidak Terlaksana,Penugasan Tambahan,Dibatalkan]',
             'errors' => [
-                'in_list' => 'Status harus salah satu dari: Terlaksana, Tidak Terlaksana, atau Penugasan Tambahan'
+                'in_list' => 'Status harus salah satu dari: Terlaksana, Tidak Terlaksana, Penugasan Tambahan, atau Dibatalkan'
             ]
         ]
     ];
@@ -278,7 +279,9 @@ class ProgramKerjaModel extends Model
             'total_program'          => $this->hitungJumlahProgram(),
             'total_anggaran'         => $this->hitungTotalAnggaran(),
             'total_realisasi'        => $this->hitungTotalRealisasi(),
-            'persentase_realisasi'   => $this->hitungPersentaseRealisasi()
+            'persentase_realisasi'   => $this->hitungPersentaseRealisasi(),
+            'persentase_capaian'     => $this->hitungPersentaseCapaian(),
+            'persentase_pelaksanaan' => $this->hitungPersentasePelaksanaan()
         ];
     }
 
@@ -294,6 +297,42 @@ class ProgramKerjaModel extends Model
         
         if ($totalAnggaran > 0) {
             return round(($totalRealisasi / $totalAnggaran) * 100, 2);
+        }
+        
+        return 0;
+    }
+
+    /**
+     * Hitung persentase capaian PKPT inti (Terlaksana vs Tidak Terlaksana)
+     * 
+     * @return float
+     */
+    private function hitungPersentaseCapaian()
+    {
+        $terlaksana = $this->where('status', 'Terlaksana')->countAllResults();
+        $tidakTerlaksana = $this->where('status', 'Tidak Terlaksana')->countAllResults();
+        $totalCore = $terlaksana + $tidakTerlaksana;
+        
+        if ($totalCore > 0) {
+            return round(($terlaksana / $totalCore) * 100, 2);
+        }
+        
+        return 0;
+    }
+
+    /**
+     * Hitung persentase realisasi pelaksanaan kegiatan secara total
+     * (Semua Terlaksana / Semua Kegiatan)
+     * 
+     * @return float
+     */
+    private function hitungPersentasePelaksanaan()
+    {
+        $totalProgram = $this->countAllResults();
+        $terlaksana = $this->where('status', 'Terlaksana')->countAllResults();
+        
+        if ($totalProgram > 0) {
+            return round(($terlaksana / $totalProgram) * 100, 2);
         }
         
         return 0;
@@ -330,17 +369,29 @@ class ProgramKerjaModel extends Model
                        ->groupBy('status')
                        ->findAll();
         
-        $distribution = [
-            'labels' => [],
-            'data' => []
+        $groups = [
+            'core' => [
+                'labels' => [],
+                'data' => []
+            ],
+            'additional' => [
+                'labels' => [],
+                'data' => []
+            ]
         ];
         
         foreach ($result as $row) {
-            $distribution['labels'][] = $row['status'] ?: 'Belum Ditentukan';
-            $distribution['data'][] = (int)$row['count'];
+            $status = $row['status'] ?: 'Belum Ditentukan';
+            if ($status === 'Penugasan Tambahan') {
+                $groups['additional']['labels'][] = $status;
+                $groups['additional']['data'][] = (int)$row['count'];
+            } else {
+                $groups['core']['labels'][] = $status;
+                $groups['core']['data'][] = (int)$row['count'];
+            }
         }
         
-        return $distribution;
+        return $groups;
     }
 
     /**

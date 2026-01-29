@@ -190,7 +190,16 @@ class ProgramKerja extends BaseController
     public function simpan()
     {
         // Validasi input
-        if (!$this->validate($this->programKerjaModel->getValidationRules())) {
+        $rules = $this->programKerjaModel->getValidationRules();
+        $status = $this->request->getPost('status');
+        if (in_array($status, ['Tidak Terlaksana', 'Dibatalkan'])) {
+            $rules['alasan_tidak_terlaksana'] = [
+                'rules'  => 'required',
+                'errors' => ['required' => 'Alasan wajib diisi jika status tidak terlaksana atau dibatalkan']
+            ];
+        }
+
+        if (!$this->validate($rules)) {
             return redirect()->back()
                            ->withInput()
                            ->with('errors', $this->validator->getErrors());
@@ -209,7 +218,8 @@ class ProgramKerja extends BaseController
             'pelaksana'          => $this->request->getPost('pelaksana'),
             'realisasi_anggaran' => $this->request->getPost('realisasi_anggaran') ?? 0,
             'sasaran_strategis'  => $this->request->getPost('sasaran_strategis'),
-            'status'             => $this->request->getPost('status'),
+            'status'             => $status,
+            'alasan_tidak_terlaksana' => in_array($status, ['Tidak Terlaksana', 'Dibatalkan']) ? $this->request->getPost('alasan_tidak_terlaksana') : null,
         ];
 
 
@@ -295,7 +305,16 @@ class ProgramKerja extends BaseController
         }
 
         // Validasi input
-        if (!$this->validate($this->programKerjaModel->getValidationRules())) {
+        $rules = $this->programKerjaModel->getValidationRules();
+        $status = $this->request->getPost('status');
+        if (in_array($status, ['Tidak Terlaksana', 'Dibatalkan'])) {
+            $rules['alasan_tidak_terlaksana'] = [
+                'rules'  => 'required',
+                'errors' => ['required' => 'Alasan wajib diisi jika status tidak terlaksana atau dibatalkan']
+            ];
+        }
+
+        if (!$this->validate($rules)) {
             return redirect()->back()
                            ->withInput()
                            ->with('errors', $this->validator->getErrors());
@@ -314,7 +333,8 @@ class ProgramKerja extends BaseController
             'pelaksana'          => $this->request->getPost('pelaksana'),
             'realisasi_anggaran' => $this->request->getPost('realisasi_anggaran') ?? 0,
             'sasaran_strategis'  => $this->request->getPost('sasaran_strategis'),
-            'status'             => $this->request->getPost('status'),
+            'status'             => $status,
+            'alasan_tidak_terlaksana' => in_array($status, ['Tidak Terlaksana', 'Dibatalkan']) ? $this->request->getPost('alasan_tidak_terlaksana') : null,
         ];
 
 
@@ -593,7 +613,7 @@ class ProgramKerja extends BaseController
         // Ambil query dari model untuk mendapatkan dokumen_output juga
         $db = \Config\Database::connect();
         $subQuery = $db->table('program_kerja_dokumen')
-            ->select("GROUP_CONCAT(CONCAT(id, ':', nama_file, ':', COALESCE(tipe_dokumen, 'Dokumen')) SEPARATOR '|')")
+            ->select("GROUP_CONCAT(CONCAT(id, ':', COALESCE(nama_asli, nama_file), ':', COALESCE(tipe_dokumen, 'Dokumen')) SEPARATOR '|')")
             ->where('program_kerja_id = program_kerja.id')
             ->orderBy('created_at', 'DESC')
             ->getCompiledSelect();
@@ -626,7 +646,7 @@ class ProgramKerja extends BaseController
         $headers = [
             'No', 'Tahun', 'Nama Kegiatan', 'Tanggal Mulai', 'Tanggal Selesai', 
             'Unit Kerja', 'Rencana Kegiatan', 'Anggaran', 'Realisasi Kegiatan', 
-            'Pelaksana', 'Dokumen', 'Realisasi Anggaran', 'Sasaran Strategis', 'Status'
+            'Pelaksana', 'Dokumen', 'Realisasi Anggaran', 'Sasaran Strategis', 'Status', 'Keterangan'
         ];
 
         // Fill headers
@@ -656,7 +676,7 @@ class ProgramKerja extends BaseController
                 ],
             ],
         ];
-        $sheet->getStyle('A1:N1')->applyFromArray($headerStyle);
+        $sheet->getStyle('A1:O1')->applyFromArray($headerStyle);
         $sheet->getRowDimension(1)->setRowHeight(25);
 
         // Data rows
@@ -694,14 +714,15 @@ class ProgramKerja extends BaseController
             $sheet->setCellValue('L' . $rowIdx, $row['realisasi_anggaran']);
             $sheet->setCellValue('M' . $rowIdx, $row['sasaran_strategis']);
             $sheet->setCellValue('N' . $rowIdx, $row['status']);
+            $sheet->setCellValue('O' . $rowIdx, $row['alasan_tidak_terlaksana']);
 
             // Style for data cell (borders)
-            $sheet->getStyle('A' . $rowIdx . ':N' . $rowIdx)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+            $sheet->getStyle('A' . $rowIdx . ':O' . $rowIdx)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
             $rowIdx++;
         }
 
         // Auto column width & text wrapping
-        foreach (range('A', 'N') as $colId) {
+        foreach (range('A', 'O') as $colId) {
             if ($colId !== 'K') { // Don't auto-size documents column to avoid extreme width
                 $sheet->getColumnDimension($colId)->setAutoSize(true);
             } else {
@@ -719,12 +740,17 @@ class ProgramKerja extends BaseController
 
         // Center No and Tahun
         $sheet->getStyle('A2:B' . ($rowIdx - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        
+        // Wrap text for Keterangan
+        $sheet->getStyle('O2:O' . ($rowIdx - 1))->getAlignment()->setWrapText(true);
+        $sheet->getColumnDimension('O')->setWidth(30);
 
         // Header Filtering
-        $sheet->setAutoFilter('A1:N1');
+        $sheet->setAutoFilter('A1:O1');
 
         // Redirect output to a client’s web browser (Xlsx)
-        $filename = 'Data_Program_Kerja_' . date('Y-m-d_His') . '.xlsx';
+        $yearPrefix = $tahun ? "Tahun_{$tahun}_" : "";
+        $filename = "PKPT_{$yearPrefix}Export_" . date('Y-m-d_H_i_s') . '.xlsx';
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         header('Content-Disposition: attachment;filename="' . $filename . '"');
         header('Cache-Control: max-age=0');
