@@ -298,7 +298,7 @@ function renderTrendChart(data) {
 }
 
 /**
- * Render Frequency Bar Chart
+ * Render Frequency Stacked Bar Chart
  */
 function renderFrequencyChart(dist) {
     const ctx = document.getElementById('freqChartModern');
@@ -306,7 +306,7 @@ function renderFrequencyChart(dist) {
 
     if (charts.freq) charts.freq.destroy();
 
-    const labels = dist.core.labels; // Jan, Feb, etc
+    const labels = dist.core.labels; // Status labels: Terlaksana, etc
 
     charts.freq = new Chart(ctx, {
         type: 'bar',
@@ -318,14 +318,14 @@ function renderFrequencyChart(dist) {
                     data: dist.core.data,
                     backgroundColor: '#1a2a44',
                     borderRadius: 4,
-                    barThickness: 24
+                    barThickness: 32
                 },
                 {
                     label: 'Penugasan Tambahan',
                     data: dist.additional.data,
                     backgroundColor: '#FAC70B',
                     borderRadius: 4,
-                    barThickness: 24
+                    barThickness: 32
                 }
             ]
         },
@@ -334,22 +334,50 @@ function renderFrequencyChart(dist) {
             maintainAspectRatio: true,
             aspectRatio: 2.5,
             plugins: {
-                legend: { display: false }
+                legend: { display: false },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    titleColor: '#1e293b',
+                    bodyColor: '#475569',
+                    borderColor: '#e2e8f0',
+                    borderWidth: 1,
+                    padding: 12,
+                    callbacks: {
+                        label: function (context) {
+                            const label = context.dataset.label || '';
+                            const value = context.parsed.y;
+                            return ` ${label}: ${value} kegiatan`;
+                        },
+                        afterBody: function (context) {
+                            const chartData = context[0].chart.data;
+                            const index = context[0].dataIndex;
+                            let total = 0;
+                            chartData.datasets.forEach(ds => {
+                                total += ds.data[index] || 0;
+                            });
+                            return `\nTotal: ${total} kegiatan`;
+                        }
+                    }
+                }
             },
             scales: {
                 y: {
+                    stacked: true,
                     beginAtZero: true,
                     grid: { color: '#f1f5f9' },
                     ticks: {
                         stepSize: 2,
-                        font: { size: 11, family: 'Arial', weight: '500' },
+                        font: { size: 10, family: 'Arial', weight: '500' },
                         color: '#64748b'
                     }
                 },
                 x: {
+                    stacked: true,
                     grid: { display: false },
                     ticks: {
-                        font: { size: 11, family: 'Arial', weight: '500' },
+                        font: { size: 10, family: 'Arial', weight: '500' },
                         color: '#64748b'
                     }
                 }
@@ -446,6 +474,7 @@ function updateStatistics(year) {
                 const budgetScaleSisa = document.getElementById('budgetScaleSisa');
                 const statusPercentMain = document.getElementById('statusPercentMain');
                 const statusCountSub = document.getElementById('statusCountSub');
+                const statusCountTerlaksana = document.getElementById('statusCountTerlaksana');
 
                 if (budgetValRealisasi) budgetValRealisasi.textContent = formatNumber(Math.round(data.total_realisasi / 1000)) + '.000';
                 if (budgetPercentRealisasi) budgetPercentRealisasi.textContent = Math.round(data.persentase_realisasi) + '% REALISASI';
@@ -454,137 +483,141 @@ function updateStatistics(year) {
                 if (budgetScaleSisa) budgetScaleSisa.textContent = 'Sisa: Rp ' + formatNumber(data.sisa_anggaran);
                 if (statusPercentMain) statusPercentMain.textContent = Math.round(data.persentase_pelaksanaan) + '%';
                 if (statusCountSub) statusCountSub.textContent = formatNumber(data.total_program);
+                if (statusCountTerlaksana) statusCountTerlaksana.textContent = formatNumber(data.total_terlaksana || 0);
             }
         })
         .catch(error => console.error('Statistics error:', error));
 }
 
 /**
- * Render Monthly Status Polygon Frequency Chart
+ * Render Monthly Status Charts Comparison (Bar & Polygon)
  */
 function renderMonthlyStatusPolygon(data) {
-    const ctx = document.getElementById('executionBarChart');
-    if (!ctx) return;
+    const ctxBar = document.getElementById('executionBarChart');
+    const ctxPoly = document.getElementById('executionPolygonChart');
+
+    if (!ctxBar || !ctxPoly) return;
 
     if (charts.executionBar) charts.executionBar.destroy();
+    if (charts.executionPoly) charts.executionPoly.destroy();
 
-    charts.executionBar = new Chart(ctx, {
-        type: 'line',
+    const commonScales = {
+        y: {
+            stacked: true,
+            beginAtZero: true,
+            grid: { color: '#f1f5f9', drawBorder: false },
+            ticks: { stepSize: 1, precision: 0, font: { size: 10 }, color: '#64748b' },
+            afterDataLimits: (scale) => { if (scale.max < 5) scale.max = 5; }
+        },
+        x: {
+            stacked: true,
+            grid: { display: false },
+            ticks: { font: { size: 10, weight: '500' }, color: '#64748b' }
+        }
+    };
+
+    const commonPlugins = {
+        legend: {
+            display: true,
+            position: 'top',
+            align: 'start',
+            labels: { usePointStyle: true, padding: 15, font: { size: 11, weight: '600' } }
+        },
+        tooltip: {
+            mode: 'index',
+            intersect: false,
+            backgroundColor: 'rgba(255, 255, 255, 0.98)',
+            titleColor: '#1e293b',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            padding: 10,
+            callbacks: {
+                label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y || 0} kegiatan`,
+                afterBody: (items) => {
+                    const idx = items[0].dataIndex;
+                    const tot = data.terlaksana[idx] + data.tidak_terlaksana[idx];
+                    return tot === 0 ? '\n(Tidak ada kegiatan)' : `\nTotal: ${tot} kegiatan`;
+                }
+            }
+        }
+    };
+
+    // Custom plugin for empty marker and total labels
+    const chartEnhancements = {
+        id: 'chartEnhancements',
+        afterDraw: (chart) => {
+            const { ctx, data, scales: { x, y } } = chart;
+            ctx.save();
+            data.labels.forEach((_, i) => {
+                const terlaksana = data.datasets[0].data[i] || 0;
+                const tidak = data.datasets[1] ? (data.datasets[1].data[i] || 0) : 0;
+                const total = terlaksana + tidak;
+                const xPos = x.getPixelForTick(i);
+
+                // 1. Label Total di atas Batang (Hanya untuk Bar Chart)
+                if (chart.config.type === 'bar' && total > 0) {
+                    const yPos = y.getPixelForValue(total);
+                    ctx.fillStyle = '#1e293b';
+                    ctx.font = 'bold 11px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(total, xPos, yPos - 8);
+                }
+
+                // 2. Marker untuk bulan kosong
+                if (total === 0) {
+                    ctx.fillStyle = '#cbd5e1';
+                    ctx.beginPath();
+                    ctx.arc(xPos, y.getPixelForValue(0) - 5, 2, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+            });
+            ctx.restore();
+        }
+    };
+
+    // 1. Render Bar Chart (Stacked)
+    charts.executionBar = new Chart(ctxBar, {
+        type: 'bar',
         data: {
             labels: data.labels,
             datasets: [
-                {
-                    label: 'Terlaksana',
-                    data: data.terlaksana,
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-                    borderWidth: 3,
-                    pointRadius: 5,
-                    pointBackgroundColor: '#10b981',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    tension: 0.4,
-                    fill: true
-                },
-                {
-                    label: 'Tidak Terlaksana',
-                    data: data.tidak_terlaksana,
-                    borderColor: '#ef4444',
-                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                    borderWidth: 3,
-                    pointRadius: 5,
-                    pointBackgroundColor: '#ef4444',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    tension: 0.4,
-                    fill: true
-                }
+                { label: 'Terlaksana', data: data.terlaksana, backgroundColor: '#10b981', borderRadius: 4, barThickness: 20 },
+                { label: 'Tidak Terlaksana', data: data.tidak_terlaksana, backgroundColor: '#ef4444', borderRadius: 4, barThickness: 20 }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top',
-                    align: 'start',
-                    labels: {
-                        usePointStyle: true,
-                        pointStyle: 'circle',
-                        padding: 15,
-                        font: {
-                            family: 'Arial',
-                            size: 12,
-                            weight: '600'
-                        }
-                    }
-                },
-                tooltip: {
-                    mode: 'index',
-                    intersect: false,
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    titleColor: '#1e293b',
-                    bodyColor: '#475569',
-                    borderColor: '#e2e8f0',
-                    borderWidth: 1,
-                    padding: 12,
-                    displayColors: true,
-                    callbacks: {
-                        title: function (context) {
-                            return context[0].label;
-                        },
-                        label: function (context) {
-                            const label = context.dataset.label || '';
-                            const value = context.parsed.y;
-                            return ` ${label}: ${value}`;
-                        },
-                        afterBody: function (context) {
-                            const terlaksana = context[0].chart.data.datasets[0].data[context[0].dataIndex];
-                            const tidakTerlaksana = context[0].chart.data.datasets[1].data[context[0].dataIndex];
-                            const total = terlaksana + tidakTerlaksana;
-                            return `\nTotal: ${total} kegiatan`;
-                        }
-                    }
-                }
-            },
+            plugins: commonPlugins,
             scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: {
-                        color: '#f1f5f9',
-                        drawBorder: false
-                    },
-                    ticks: {
-                        stepSize: 1,
-                        font: {
-                            family: 'Arial',
-                            size: 11,
-                            weight: '500'
-                        },
-                        color: '#64748b'
-                    }
-                },
-                x: {
-                    grid: {
-                        display: false,
-                        drawBorder: false
-                    },
-                    ticks: {
-                        font: {
-                            family: 'Arial',
-                            size: 11,
-                            weight: '500'
-                        },
-                        color: '#64748b'
-                    }
-                }
-            },
-            interaction: {
-                mode: 'index',
-                intersect: false
+                ...commonScales,
+                y: { ...commonScales.y, grace: '15%' }
             }
-        }
+        },
+        plugins: [chartEnhancements]
+    });
+
+    // 2. Render Polygon Chart (Area)
+    charts.executionPoly = new Chart(ctxPoly, {
+        type: 'line',
+        data: {
+            labels: data.labels,
+            datasets: [
+                { label: 'Terlaksana', data: data.terlaksana, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.4, pointRadius: 4 },
+                { label: 'Tidak Terlaksana', data: data.tidak_terlaksana, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, tension: 0.4, pointRadius: 4 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: commonPlugins,
+            scales: {
+                ...commonScales,
+                y: { ...commonScales.y, stacked: false },
+                x: { ...commonScales.x, stacked: false }
+            }
+        },
+        plugins: [chartEnhancements]
     });
 }
 

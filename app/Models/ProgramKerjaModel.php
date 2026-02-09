@@ -253,6 +253,9 @@ class ProgramKerjaModel extends Model
         if ($tahun) {
             $query->where('tahun', $tahun);
         }
+        // PKPT Utama only
+        $query->where('status !=', 'Penugasan Tambahan');
+        
         $result = $query->first();
         return $result['anggaran'] ?? 0;
     }
@@ -268,6 +271,9 @@ class ProgramKerjaModel extends Model
         if ($tahun) {
             $query->where('tahun', $tahun);
         }
+        // PKPT Utama only
+        $query->where('status !=', 'Penugasan Tambahan');
+        
         $result = $query->first();
         return $result['realisasi_anggaran'] ?? 0;
     }
@@ -279,10 +285,12 @@ class ProgramKerjaModel extends Model
      */
     public function hitungJumlahProgram($tahun = null)
     {
+        $query = $this;
         if ($tahun) {
-            return $this->where('tahun', $tahun)->countAllResults();
+            $query = $query->where('tahun', $tahun);
         }
-        return $this->countAllResults();
+        // PKPT Utama only
+        return $query->where('status !=', 'Penugasan Tambahan')->countAllResults();
     }
 
     /**
@@ -290,30 +298,38 @@ class ProgramKerjaModel extends Model
      * 
      * @return array
      */
-    /**
-     * Mengambil ringkasan statistik untuk dashboard.
-     * - Total Program
-     * - Total Anggaran
-     * - Total Realisasi
-     * - Persentase Capaian
-     * 
-     * @return array Data statistik
-     */
     public function ambilStatistik($tahun = null)
     {
         $totalAnggaran = $this->hitungTotalAnggaran($tahun);
         $totalRealisasi = $this->hitungTotalRealisasi($tahun);
         $sisaAnggaran = $totalAnggaran - $totalRealisasi;
 
+        // Separate counting for additional tasks (not affecting KPI)
+        $queryAdd = $this->where('status', 'Penugasan Tambahan');
+        if ($tahun) $queryAdd->where('tahun', $tahun);
+        $totalTambahan = $queryAdd->countAllResults();
+
         return [
-            'total_program'          => $this->hitungJumlahProgram($tahun),
+            'total_program'          => $this->hitungJumlahProgram($tahun), // Now PKPT Utama only
+            'total_tambahan'         => $totalTambahan, // New field for separation
             'total_anggaran'         => $totalAnggaran,
             'total_realisasi'        => $totalRealisasi,
             'sisa_anggaran'          => $sisaAnggaran,
             'persentase_realisasi'   => $this->hitungPersentaseRealisasi($tahun),
             'persentase_capaian'     => $this->hitungPersentaseCapaian($tahun),
-            'persentase_pelaksanaan' => $this->hitungPersentasePelaksanaan($tahun)
+            'persentase_pelaksanaan' => $this->hitungPersentasePelaksanaan($tahun),
+            'total_terlaksana'       => $this->hitungJumlahTerlaksana($tahun)
         ];
+    }
+
+    /**
+     * Hitung jumlah kegiatan terlaksana (PKPT Utama)
+     */
+    private function hitungJumlahTerlaksana($tahun = null)
+    {
+        $query = $this->where('status', 'Terlaksana');
+        if ($tahun) $query->where('tahun', $tahun);
+        return $query->countAllResults();
     }
 
     /**

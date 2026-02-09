@@ -12,7 +12,8 @@
             </div>
             <div class="stat-info-modern">
                 <h3 id="statTotalProgram"><?= number_format($statistik['total_program']) ?></h3>
-                <p>TOTAL PROGRAM</p>
+                <p style="margin: 0;">TOTAL PROGRAM</p>
+                <div style="font-size: 0.65rem; color: #94a3b8; font-style: italic; margin-bottom: 5px;">Berdasarkan kegiatan PKPT</div>
                 <div class="stat-period-label period-label">Tahunan <?= $tahun_aktif ?></div>
             </div>
             <div class="card-accent-line"></div>
@@ -90,19 +91,55 @@
                     </div>
                 </div>
             </div>
-            <!-- Right: Status Pelaksanaan Kegiatan -->
-            <div class="inner-card">
-                <div class="inner-header">Tren Frekuensi Status Pelaksanaan Kegiatan per Bulan</div>
+            <!-- Right: Status Pelaksanaan Kegiatan Comparison -->
+            <div class="inner-card comparison-card" style="grid-column: span 2;">
+                <div class="inner-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Perbandingan Visualisasi Tren Realisasi Pelaksanaan (Tahun <?= $tahun_aktif ?>)</span>
+                    <span class="badge badge-primary-lite" style="background: #e0e7ff; color: #4338ca; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem;">Analisis Dashboard</span>
+                </div>
                 <div class="inner-body">
-                    <div class="radar-chart-container">
-                        <canvas id="executionBarChart"></canvas>
-                    </div>
-                    <div class="status-footer-info-modern" style="flex-direction: column; align-items: flex-start; gap: 8px;">
-                        <div style="display: flex; align-items: baseline; gap: 8px; width: 100%;">
-                            <span style="font-size: 1.5rem; font-weight: 700; color: #10b981;" id="statusPercentMain"><?= number_format($statistik['persentase_pelaksanaan'], 0) ?>%</span>
-                            <span style="font-size: 0.95rem; color: #475569; font-weight: 500;">kegiatan terlaksana dari total <strong id="statusCountSub"><?= $statistik['total_program'] ?></strong> kegiatan tahun <strong><?= $tahun_aktif ?></strong></span>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                        <!-- Comparison Item 1: Stacked Bar -->
+                        <div>
+                            <h5 style="text-align: center; color: #64748b; font-size: 0.85rem; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.05em;">Opsi A: Stacked Bar Chart</h5>
+                            <div style="height: 280px; position: relative;">
+                                <canvas id="executionBarChart"></canvas>
+                            </div>
+                            <div style="margin-top: 15px; padding: 12px; background: #f0fdf4; border-radius: 8px; font-size: 0.85rem; color: #166534; border-left: 4px solid #10b981;">
+                                <strong>Karakteristik:</strong> Menonjolkan total volume kegiatan bulanan dan persentase kontribusi status secara mutlak.
+                            </div>
                         </div>
-                        <div class="note-sub" style="margin-top: 4px;">Grafik menampilkan tren frekuensi status pelaksanaan per bulan untuk program PKPT dan penugasan tambahan</div>
+
+                        <!-- Comparison Item 2: Polygon -->
+                        <div>
+                            <h5 style="text-align: center; color: #64748b; font-size: 0.85rem; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.05em;">Opsi B: Frequency Polygon</h5>
+                            <div style="height: 280px; position: relative;">
+                                <canvas id="executionPolygonChart"></canvas>
+                            </div>
+                            <div style="margin-top: 15px; padding: 12px; background: #fff1f2; border-radius: 8px; font-size: 0.85rem; color: #9f1239; border-left: 4px solid #f43f5e;">
+                                <strong>Karakteristik:</strong> Menonjolkan perubahan drastis (laju) antar bulan, namun volume total sulit dibandingkan.
+                            </div>
+                            <p style="margin-top: 10px; font-size: 0.75rem; color: #94a3b8; font-style: italic; text-align: center;">
+                                Catatan: Poligon frekuensi digunakan untuk analisis tren, bukan perbandingan volume absolut.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="recommendation-box" style="margin-top: 30px; padding: 20px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px;">
+                        <h4 style="margin: 0 0 10px 0; color: #1e293b; font-size: 1rem; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-lightbulb" style="color: #eab308;"></i> Rekomendasi untuk Dashboard Pemerintahan
+                        </h4>
+                        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: flex-start;">
+                            <p style="margin: 0; font-size: 0.9rem; color: #475569; line-height: 1.6;">
+                                Untuk kebutuhan pelaporan akuntabilitas (PKPT), <strong>Stacked Bar Chart (Opsi A)</strong> adalah pilihan paling tepat. Grafik ini secara jujur menunjukkan "beban kerja nyata" setiap bulan. Pimpinan dapat melihat total target (tinggi batang) sekaligus keberhasilan (warna hijau) tanpa perlu melakukan kalkulasi mental. Poligon (Opsi B) lebih cocok untuk melihat statistik abstrak atau tren jangka panjang yang sangat padat. <strong>Oleh karena itu, visual stacked bar digunakan sebagai tampilan utama dashboard, sementara grafik poligon bersifat opsional untuk analisis pendukung.</strong>
+                            </p>
+                            <div class="narrative-summary-stat" style="background: white; padding: 15px; border-radius: 10px; border: 1px solid #e2e8f0; text-align: center;">
+                                <div style="font-size: 1.5rem; font-weight: 800; color: #10b981;" id="statusPercentMain"><?= number_format($statistik['persentase_pelaksanaan'], 0) ?>%</div>
+                                <div style="font-size: 0.75rem; color: #64748b; text-transform: uppercase;">Total Keterlaksanaan</div>
+                                 <div style="font-size: 0.6rem; color: #94a3b8; font-style: italic; margin-top: 2px;">Berdasarkan total kegiatan PKPT</div>
+                                <div style="font-size: 0.8rem; color: #334155; margin-top: 5px;"><strong id="statusCountTerlaksana"><?= number_format($statistik['total_terlaksana'] ?? 0) ?></strong> dari <span id="statusCountSub"><?= $statistik['total_program'] ?></span></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

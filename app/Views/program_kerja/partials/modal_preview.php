@@ -117,7 +117,10 @@
             jsContainer.style.display = 'block';
             
             fetch(previewUrl)
-                .then(response => response.arrayBuffer())
+                .then(response => {
+                    if (!response.ok) throw new Error('File tidak ditemukan atau terjadi kesalahan server');
+                    return response.arrayBuffer();
+                })
                 .then(buffer => {
                     docx.renderAsync(buffer, jsContent)
                         .then(() => {
@@ -138,7 +141,10 @@
             jsContainer.style.display = 'block';
             
             fetch(previewUrl)
-                .then(response => response.arrayBuffer())
+                .then(response => {
+                    if (!response.ok) throw new Error('File tidak ditemukan atau terjadi kesalahan server');
+                    return response.arrayBuffer();
+                })
                 .then(buffer => {
                     const workbook = XLSX.read(buffer, { type: 'array' });
                     // Read first sheet

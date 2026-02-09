@@ -263,24 +263,28 @@ class ProgramKerja extends BaseController
                 
                 foreach ($files['dokumen'] as $idx => $file) {
                     if ($file->isValid() && !$file->hasMoved()) {
-                        $namaFile = $file->getRandomName();
-                        $file->move(WRITEPATH . 'uploads/dokumen_output', $namaFile);
-                        
-                        // Determine type: if array use index, else use single value
-                        $tipe = 'Lampiran';
-                        if (is_array($tipeDokumenInput) && isset($tipeDokumenInput[$idx])) {
-                            $tipe = $tipeDokumenInput[$idx];
-                        } elseif (is_string($tipeDokumenInput) && !empty($tipeDokumenInput)) {
-                            $tipe = $tipeDokumenInput;
+                        $targetDir = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'dokumen_output';
+                        if (!is_dir($targetDir)) {
+                            mkdir($targetDir, 0777, true);
                         }
+                        
+                        $namaFile = $file->getRandomName();
+                        if ($file->move($targetDir, $namaFile)) {
+                            // Determine type: if array use index, else use single value
+                            $tipe = 'Lampiran';
+                            if (is_array($tipeDokumenInput) && isset($tipeDokumenInput[$idx])) {
+                                $tipe = $tipeDokumenInput[$idx];
+                            } elseif (is_string($tipeDokumenInput) && !empty($tipeDokumenInput)) {
+                                $tipe = $tipeDokumenInput;
+                            }
 
-
-                        $this->dokumenModel->insert([
-                            'program_kerja_id' => $newId,
-                            'nama_file'        => $namaFile,
-                            'nama_asli'        => $file->getClientName(),
-                            'tipe_dokumen'     => $tipe
-                        ]);
+                            $this->dokumenModel->insert([
+                                'program_kerja_id' => $newId,
+                                'nama_file'        => $namaFile,
+                                'nama_asli'        => $file->getClientName(),
+                                'tipe_dokumen'     => $tipe
+                            ]);
+                        }
                     }
                 }
             }
@@ -398,15 +402,20 @@ class ProgramKerja extends BaseController
             if ($files && isset($files['dokumen'])) {
                 foreach ($files['dokumen'] as $file) {
                     if ($file->isValid() && !$file->hasMoved()) {
+                        $targetDir = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'dokumen_output';
+                        if (!is_dir($targetDir)) {
+                            mkdir($targetDir, 0777, true);
+                        }
+
                         $namaFile = $file->getRandomName();
-                        $file->move(WRITEPATH . 'uploads/dokumen_output', $namaFile);
-                        
-                        $this->dokumenModel->insert([
-                            'program_kerja_id' => $id,
-                            'nama_file'        => $namaFile,
-                            'nama_asli'        => $file->getClientName(),
-                            'tipe_dokumen'     => 'Lampiran'
-                        ]);
+                        if ($file->move($targetDir, $namaFile)) {
+                            $this->dokumenModel->insert([
+                                'program_kerja_id' => $id,
+                                'nama_file'        => $namaFile,
+                                'nama_asli'        => $file->getClientName(),
+                                'tipe_dokumen'     => 'Lampiran'
+                            ]);
+                        }
                     }
                 }
             }
@@ -438,7 +447,7 @@ class ProgramKerja extends BaseController
         // Hapus file dokumen terkait (via DokumenModel)
         $dokumenTerkait = $this->dokumenModel->where('program_kerja_id', $id)->findAll();
         foreach ($dokumenTerkait as $doc) {
-            $filePath = WRITEPATH . 'uploads/dokumen_output/' . $doc['nama_file'];
+            $filePath = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'dokumen_output' . DIRECTORY_SEPARATOR . $doc['nama_file'];
             if (file_exists($filePath)) {
                 unlink($filePath);
             }
@@ -472,14 +481,14 @@ class ProgramKerja extends BaseController
                            ->with('gagal', 'Dokumen tidak ditemukan');
         }
 
-        $filePath = WRITEPATH . 'uploads/dokumen_output/' . $dokumen['nama_file'];
+        $path = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'dokumen_output' . DIRECTORY_SEPARATOR . $dokumen['nama_file'];
 
-        if (!file_exists($filePath)) {
+        if (!file_exists($path)) {
             return redirect()->to('/program-kerja')
-                           ->with('gagal', 'File dokumen tidak ditemukan di server');
+                           ->with('gagal', 'File fisik tidak ditemukan di server. Silakan hubungi administrator.');
         }
 
-        return $this->response->download($filePath, null)->setFileName($dokumen['nama_asli']);
+        return $this->response->download($path, null)->setFileName($dokumen['nama_asli'] ?? $dokumen['nama_file']);
     }
 
     /**
@@ -564,17 +573,26 @@ class ProgramKerja extends BaseController
             return $this->response->setJSON(['sukses' => false, 'pesan' => $file->getErrorString()]);
         }
 
+        $targetDir = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'dokumen_output';
+        
+        // Pastikan direktori ada
+        if (!is_dir($targetDir)) {
+            mkdir($targetDir, 0777, true);
+        }
+
         $namaFile = $file->getRandomName();
-        $file->move(WRITEPATH . 'uploads/dokumen_output', $namaFile);
+        if ($file->move($targetDir, $namaFile)) {
+            $this->dokumenModel->insert([
+                'program_kerja_id' => $id,
+                'nama_file'       => $namaFile,
+                'nama_asli'       => $file->getClientName(),
+                'tipe_dokumen'    => $tipe
+            ]);
 
-        $this->dokumenModel->insert([
-            'program_kerja_id' => $id,
-            'nama_file'       => $namaFile,
-            'nama_asli'       => $file->getClientName(),
-            'tipe_dokumen'    => $tipe
-        ]);
+            return $this->response->setJSON(['sukses' => true, 'pesan' => 'Dokumen berhasil diupload']);
+        }
 
-        return $this->response->setJSON(['sukses' => true, 'pesan' => 'Dokumen berhasil diupload']);
+        return $this->response->setJSON(['sukses' => false, 'pesan' => 'Gagal memindahkan file ke folder tujuan']);
     }
 
     /**
@@ -592,7 +610,7 @@ class ProgramKerja extends BaseController
         }
 
         // Hapus file fisik
-        $path = WRITEPATH . 'uploads/dokumen_output/' . $dokumen['nama_file'];
+        $path = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'dokumen_output' . DIRECTORY_SEPARATOR . $dokumen['nama_file'];
         if (file_exists($path)) {
             unlink($path);
         }
@@ -616,12 +634,13 @@ class ProgramKerja extends BaseController
             return redirect()->back()->with('gagal', 'Dokumen tidak ditemukan');
         }
 
-        $path = WRITEPATH . 'uploads/dokumen_output/' . $dokumen['nama_file'];
+        $path = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'dokumen_output' . DIRECTORY_SEPARATOR . $dokumen['nama_file'];
+
         if (!file_exists($path)) {
-            return redirect()->back()->with('gagal', 'File fisik tidak ditemukan');
+            return redirect()->back()->with('gagal', 'File fisik tidak ditemukan di server.');
         }
 
-        return $this->response->download($path, null)->setFileName($dokumen['nama_asli']);
+        return $this->response->download($path, null)->setFileName($dokumen['nama_asli'] ?? $dokumen['nama_file']);
     }
 
     /**
@@ -633,8 +652,10 @@ class ProgramKerja extends BaseController
      */
     public function preview($id)
     {
-        // Disable CodeIgniter output buffering for raw file output
-        ob_end_clean();
+        // Safe output buffering clear
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
         
         $dokumen = $this->dokumenModel->find($id);
         if (!$dokumen) {
@@ -643,17 +664,16 @@ class ProgramKerja extends BaseController
             exit;
         }
 
-        $path = WRITEPATH . 'uploads/dokumen_output/' . $dokumen['nama_file'];
+        $path = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'dokumen_output' . DIRECTORY_SEPARATOR . $dokumen['nama_file'];
         
         // Log for debugging
         log_message('debug', 'Preview attempt - ID: ' . $id . ', nama_file: ' . $dokumen['nama_file'] . ', path: ' . $path);
         
         if (!file_exists($path)) {
             header('HTTP/1.1 404 Not Found');
-            echo 'File fisik tidak ditemukan.<br>';
-            echo 'Path: ' . $path . '<br>';
-            echo 'Nama file di database: ' . $dokumen['nama_file'] . '<br>';
-            echo 'Silakan hubungi administrator.';
+            echo 'File fisik tidak ditemukan di server.<br>';
+            echo 'Detail: ' . $dokumen['nama_file'] . '<br>';
+            echo 'Silakan hubungi administrator untuk verifikasi data.';
             exit;
         }
 
