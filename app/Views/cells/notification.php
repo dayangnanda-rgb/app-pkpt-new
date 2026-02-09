@@ -1,6 +1,7 @@
 <li class="nav-item dropdown notification-dropdown">
     <a href="javascript:void(0)" class="nav-link" id="notificationBell">
         <i class="fas fa-bell"></i>
+        <span id="announcementPulseDot" class="pulse-dot"></span>
         <?php if ($count > 0): ?>
             <span class="notification-badge"><?= $count ?></span>
         <?php endif; ?>

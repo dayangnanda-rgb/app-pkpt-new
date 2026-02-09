@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Models\ProgramKerjaModel;
 use App\Models\DokumenModel;
+use App\Models\ProgramKerjaPelaksanaModel;
 
 use CodeIgniter\HTTP\ResponseInterface;
 
@@ -27,6 +28,7 @@ class ProgramKerja extends BaseController
 {
     protected $programKerjaModel;
     protected $dokumenModel;
+    protected $pelaksanaModel;
 
     protected $validation;
 
@@ -37,6 +39,7 @@ class ProgramKerja extends BaseController
     {
         $this->programKerjaModel = new ProgramKerjaModel();
         $this->dokumenModel = new DokumenModel();
+        $this->pelaksanaModel = new ProgramKerjaPelaksanaModel();
 
         $this->validation = \Config\Services::validation();
     }
@@ -60,7 +63,8 @@ class ProgramKerja extends BaseController
 
         $data = [
             'judul' => 'Detail Program Kerja',
-            'program_kerja' => $programKerja
+            'program_kerja' => $programKerja,
+            'tim_pelaksana' => $this->pelaksanaModel->getByProgramKerja($id)
         ];
 
         return view('program_kerja/detail', $data);
@@ -75,6 +79,11 @@ class ProgramKerja extends BaseController
     {
         $keyword = $this->request->getGet('cari');
         $tahun = $this->request->getGet('tahun');
+        
+        // Save selected year to session for Dashboard synchronization
+        if ($tahun && is_numeric($tahun)) {
+            session()->set('pkpt_tahun_aktif', $tahun);
+        }
         $perPage = 10;
 
         // Ambil daftar tahun available untuk dropdown
@@ -231,6 +240,22 @@ class ProgramKerja extends BaseController
         if ($this->programKerjaModel->insert($data)) {
             $newId = $this->programKerjaModel->getInsertID();
 
+            // Handle Team Members (Dynamic)
+            $timNama = $this->request->getPost('tim_nama');
+            $timPeran = $this->request->getPost('tim_peran');
+
+            if ($timNama && is_array($timNama)) {
+                foreach ($timNama as $idx => $nama) {
+                    if (!empty(trim($nama))) {
+                        $this->pelaksanaModel->insert([
+                            'program_kerja_id' => $newId,
+                            'nama_pelaksana'   => trim($nama),
+                            'peran'            => $timPeran[$idx] ?? 'Anggota'
+                        ]);
+                    }
+                }
+            }
+
             // Handle multi-upload dokumen
             $files = $this->request->getFiles();
             if ($files && isset($files['dokumen'])) {
@@ -287,6 +312,7 @@ class ProgramKerja extends BaseController
         $data['judul'] = 'Edit Program Kerja';
         $data['aksi'] = 'edit';
         $data['program_kerja'] = $programKerja;
+        $data['tim_pelaksana'] = $this->pelaksanaModel->getByProgramKerja($id);
 
 
         return view('program_kerja/form', $data);
@@ -347,6 +373,25 @@ class ProgramKerja extends BaseController
 
         // Update ke database
         if ($this->programKerjaModel->update($id, $data)) {
+
+            // Update Team Members (Dynamic)
+            // Simple approach: Delete existing and re-insert
+            $this->pelaksanaModel->where('program_kerja_id', $id)->delete();
+            
+            $timNama = $this->request->getPost('tim_nama');
+            $timPeran = $this->request->getPost('tim_peran');
+
+            if ($timNama && is_array($timNama)) {
+                foreach ($timNama as $idx => $nama) {
+                    if (!empty(trim($nama))) {
+                        $this->pelaksanaModel->insert([
+                            'program_kerja_id' => $id,
+                            'nama_pelaksana'   => trim($nama),
+                            'peran'            => $timPeran[$idx] ?? 'Anggota'
+                        ]);
+                    }
+                }
+            }
 
             // Handle multi-upload dokumen baru
             $files = $this->request->getFiles();
@@ -434,7 +479,7 @@ class ProgramKerja extends BaseController
                            ->with('gagal', 'File dokumen tidak ditemukan di server');
         }
 
-        return $this->response->download($filePath, null);
+        return $this->response->download($filePath, null)->setFileName($dokumen['nama_asli']);
     }
 
     /**
@@ -576,7 +621,7 @@ class ProgramKerja extends BaseController
             return redirect()->back()->with('gagal', 'File fisik tidak ditemukan');
         }
 
-        return $this->response->download($path, null); 
+        return $this->response->download($path, null)->setFileName($dokumen['nama_asli']);
     }
 
     /**
@@ -588,23 +633,44 @@ class ProgramKerja extends BaseController
      */
     public function preview($id)
     {
+        // Disable CodeIgniter output buffering for raw file output
+        ob_end_clean();
+        
         $dokumen = $this->dokumenModel->find($id);
         if (!$dokumen) {
-            return redirect()->back()->with('gagal', 'Dokumen tidak ditemukan');
+            header('HTTP/1.1 404 Not Found');
+            echo 'Dokumen tidak ditemukan di database (ID: ' . $id . ')';
+            exit;
         }
 
         $path = WRITEPATH . 'uploads/dokumen_output/' . $dokumen['nama_file'];
+        
+        // Log for debugging
+        log_message('debug', 'Preview attempt - ID: ' . $id . ', nama_file: ' . $dokumen['nama_file'] . ', path: ' . $path);
+        
         if (!file_exists($path)) {
-            return redirect()->back()->with('gagal', 'File fisik tidak ditemukan');
+            header('HTTP/1.1 404 Not Found');
+            echo 'File fisik tidak ditemukan.<br>';
+            echo 'Path: ' . $path . '<br>';
+            echo 'Nama file di database: ' . $dokumen['nama_file'] . '<br>';
+            echo 'Silakan hubungi administrator.';
+            exit;
         }
 
         $mime = mime_content_type($path);
+        $filename = $dokumen['nama_asli'] ?? $dokumen['nama_file'];
+        $filesize = filesize($path);
         
-        // For inline viewing, we set headers manually
-        return $this->response
-            ->setHeader('Content-Type', $mime)
-            ->setHeader('Content-Disposition', 'inline; filename="' . $dokumen['nama_file'] . '"')
-            ->setBody(file_get_contents($path));
+        // Set headers for inline preview
+        header('Content-Type: ' . $mime);
+        header('Content-Disposition: inline; filename="' . $filename . '"');
+        header('Content-Length: ' . $filesize);
+        header('Cache-Control: public, max-age=3600');
+        header('Accept-Ranges: bytes');
+        
+        // Output file content directly
+        readfile($path);
+        exit;
     }
     /**
      * Ekspor seluruh data program kerja ke Excel (.xlsx) dengan format profesional

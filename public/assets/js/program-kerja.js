@@ -258,32 +258,72 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     /**
-     * Welcome Announcement Modal Logic
+     * Welcome Announcement Popover Logic
      */
-    const announcementModal = document.getElementById('announcementModal');
+    const announcementPopover = document.getElementById('announcementPopover');
     const closeAnnouncement = document.getElementById('closeAnnouncement');
+    const announcementPulseDot = document.getElementById('announcementPulseDot');
+    // notificationBell is already declared elsewhere in the file
 
-    if (announcementModal && closeAnnouncement) {
-        // Check if shown in this session
-        const isShown = sessionStorage.getItem('pkpt_announcement_shown');
+    if (announcementPopover && closeAnnouncement) {
+        // Updated session key for testing
+        const isShown = sessionStorage.getItem('pkpt_announcement_v4_shown');
 
         if (!isShown) {
-            // Show with a slight delay for better effect
             setTimeout(() => {
-                announcementModal.classList.add('show');
+                announcementPopover.classList.add('show');
+                if (announcementPulseDot) announcementPulseDot.classList.add('show');
             }, 800);
         }
 
         closeAnnouncement.addEventListener('click', function () {
-            announcementModal.classList.remove('show');
-            sessionStorage.setItem('pkpt_announcement_shown', 'true');
+            announcementPopover.classList.remove('show');
+            sessionStorage.setItem('pkpt_announcement_v4_shown', 'true');
+            if (announcementPulseDot) announcementPulseDot.classList.remove('show');
         });
 
-        // Also close on overlay click
-        announcementModal.addEventListener('click', function (e) {
-            if (e.target === announcementModal) {
-                announcementModal.classList.remove('show');
-                sessionStorage.setItem('pkpt_announcement_shown', 'true');
+        // Toggle popover from Bell if it's still unacknowledged
+        if (notificationBell) {
+            notificationBell.addEventListener('click', function (e) {
+                if (announcementPulseDot && announcementPulseDot.classList.contains('show')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    announcementPopover.classList.add('show');
+                    notificationMenu.classList.remove('show'); // Hide main menu if showing popover
+                }
+            });
+        }
+    }
+
+    /**
+     * Recurring Policy Modal Logic
+     * Restriction: Only show on the initial "Program Kerja" listing page
+     */
+    const policyModal = document.getElementById('policyModal');
+    const confirmPolicy = document.getElementById('confirmPolicy');
+
+    if (policyModal) {
+        // Show only on the main listing page (ends with /program-kerja or /program-kerja/)
+        const path = window.location.pathname;
+        const isMainListing = path.endsWith('/program-kerja') || path.endsWith('/program-kerja/');
+
+        if (isMainListing) {
+            setTimeout(() => {
+                policyModal.classList.add('show');
+            }, 500);
+        }
+
+        // Close logic
+        if (confirmPolicy) {
+            confirmPolicy.addEventListener('click', function () {
+                policyModal.classList.remove('show');
+            });
+        }
+
+        // Close on overlay click
+        policyModal.addEventListener('click', function (e) {
+            if (e.target === policyModal) {
+                policyModal.classList.remove('show');
             }
         });
     }

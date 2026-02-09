@@ -125,15 +125,27 @@
                             </td>
                             <td class="td-pelaksana">
                                 <div class="cell-content" style="font-size: 0.85rem; line-height: 1.4;">
-                                    <?php if (!empty($pk['pengendali_teknis'])): ?>
-                                        <div title="Pengendali Teknis"><span class="text-muted" style="font-size: 0.7rem; font-weight: bold;">PT:</span> <?= esc($pk['pengendali_teknis']) ?></div>
-                                    <?php endif; ?>
-                                    <?php if (!empty($pk['ketua_tim'])): ?>
-                                        <div title="Ketua Tim"><span class="text-muted" style="font-size: 0.7rem; font-weight: bold;">KT:</span> <?= esc($pk['ketua_tim']) ?></div>
-                                    <?php elseif (!empty($pk['pelaksana'])): ?>
-                                        <div title="Pelaksana/Ketua Tim"><span class="text-muted" style="font-size: 0.7rem; font-weight: bold;">KT:</span> <?= esc($pk['pelaksana']) ?></div>
-                                    <?php endif; ?>
-                                    <?php if (empty($pk['pengendali_teknis']) && empty($pk['ketua_tim']) && empty($pk['pelaksana'])): ?>
+                                    <?php if (!empty($pk['tim_pelaksana'])): ?>
+                                        <?php 
+                                        $teamList = explode('|', $pk['tim_pelaksana']);
+                                        foreach ($teamList as $tStr):
+                                            $tParts = explode(':', $tStr);
+                                            if (count($tParts) < 2) continue;
+                                            $role = $tParts[0];
+                                            $name = $tParts[1];
+                                            
+                                            // Mapping short roles for UI
+                                            $shortRole = 'AGT';
+                                            switch($role) {
+                                                case 'Pengendali Teknis': $shortRole = 'PT'; break;
+                                                case 'Ketua Tim': $shortRole = 'KT'; break;
+                                                case 'Auditor Madya': $shortRole = 'MADYA'; break;
+                                                case 'Auditor Muda': $shortRole = 'MUDA'; break;
+                                            }
+                                        ?>
+                                            <div title="<?= esc($role) ?>"><span class="text-muted" style="font-size: 0.7rem; font-weight: bold;"><?= $shortRole ?>:</span> <?= esc($name) ?></div>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
                                         <span class="text-muted">-</span>
                                     <?php endif; ?>
                                 </div>

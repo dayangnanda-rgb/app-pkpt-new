@@ -1,15 +1,17 @@
 /**
- * Dashboard JavaScript
+ * Dashboard JavaScript - Modern Redesign
  * Handles calendar, charts, and dynamic data loading
  */
 
-let currentYear = new Date().getFullYear();
+let currentYear = (typeof pkptActiveYear !== 'undefined') ? pkptActiveYear : new Date().getFullYear();
+let lastYear = currentYear;
 let currentMonth = new Date().getMonth();
 let charts = {};
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function () {
     initializeCalendar();
+    initializeCharts();
     initializeCharts();
 
     // Calendar navigation
@@ -19,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function () {
             currentMonth = 11;
             currentYear--;
         }
-        updateCalendar();
+        handleDateChange();
     });
 
     document.getElementById('nextMonth')?.addEventListener('click', () => {
@@ -28,9 +30,24 @@ document.addEventListener('DOMContentLoaded', function () {
             currentMonth = 0;
             currentYear++;
         }
-        updateCalendar();
+        handleDateChange();
     });
 });
+
+/**
+ * Handle change in calendar date (Month or Year)
+ */
+function handleDateChange() {
+    updateCalendar();
+
+    // If year changed, update the whole dashboard
+    if (currentYear !== lastYear) {
+        lastYear = currentYear;
+        updateCharts(currentYear);
+        updateStatistics(currentYear);
+        updateStatistics(currentYear);
+    }
+}
 
 /**
  * Initialize Calendar
@@ -43,13 +60,18 @@ function initializeCalendar() {
  * Update Calendar Display
  */
 function updateCalendar() {
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
-    document.getElementById('currentMonth').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+    const monthLabel = document.getElementById('calendarLabelMonth');
+    if (monthLabel) monthLabel.textContent = monthNames[currentMonth];
+
+    const yearLabel = document.getElementById('calendarLabelYear');
+    if (yearLabel) yearLabel.textContent = currentYear;
 
     // Fetch calendar data
-    fetch(`${window.location.origin}/dashboard/calendar-data?year=${currentYear}&month=${currentMonth + 1}`)
+    const url = (typeof pkptApiUrls !== 'undefined') ? pkptApiUrls.calendar : `${window.location.origin}/dashboard/calendar-data`;
+    fetch(`${url}?year=${currentYear}&month=${currentMonth + 1}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -73,7 +95,7 @@ function renderCalendar(events) {
 
     let calendarHtml = '<table class="calendar-table"><thead><tr>';
 
-    // Header
+    // Header (English - as per user request image)
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     days.forEach(day => {
         calendarHtml += `<th>${day}</th>`;
@@ -110,11 +132,18 @@ function renderCalendar(events) {
             <div class="calendar-events">`;
 
         dayEvents.forEach(event => {
-            const statusClass = event.status ?
-                `status-${event.status.toLowerCase().replace(/ /g, '-')}` : '';
-            calendarHtml += `<div class="calendar-event ${statusClass}" 
-                                  title="${event.title}">
+            let statusClass = 'event-default';
+            if (event.status === 'Terlaksana') statusClass = 'event-terlaksana';
+            else if (event.status === 'Penugasan Tambahan' || event.status === 'Penambahan Penugasan') statusClass = 'event-penugasan-tambahan';
+            else if (event.status === 'Tidak Terlaksana') statusClass = 'event-tidak-terlaksana';
+
+            const dateRange = (event.start !== event.end) ? `<br/><small>${event.start} s.d. ${event.end}</small>` : '';
+            calendarHtml += `<div class="calendar-event-block ${statusClass}" title="${event.title}">
                                 ${event.title}
+                                <div class="event-tooltip-content" style="display:none;">
+                                    <strong>${event.title}</strong><br/>
+                                    Status: ${event.status}${dateRange}
+                                </div>
                              </div>`;
         });
 
@@ -122,263 +151,206 @@ function renderCalendar(events) {
     }
 
     // Next month days
-    const remainingCells = 42 - (firstDayIndex + lastDayDate);
+    const remainingCells = (7 - ((firstDayIndex + lastDayDate) % 7)) % 7;
     for (let day = 1; day <= remainingCells; day++) {
-        if ((day + firstDayIndex + lastDayDate - 1) % 7 === 0) {
-            calendarHtml += '</tr><tr>';
-        }
         calendarHtml += `<td><div class="calendar-day other-month">${day}</div></td>`;
     }
 
     calendarHtml += '</tr></tbody></table>';
 
-    document.getElementById('calendar').innerHTML = calendarHtml;
+    const calEl = document.getElementById('calendar');
+    if (calEl) calEl.innerHTML = calendarHtml;
 }
 
 /**
  * Initialize Charts
  */
 function initializeCharts() {
-    fetch(`${window.location.origin}/dashboard/chart-data?year=${currentYear}`)
+    updateCharts(currentYear);
+}
+
+/**
+ * Update Chart Data
+ */
+function updateCharts(year) {
+    const freqYearEl = document.getElementById('freqChartYear');
+    if (freqYearEl) freqYearEl.textContent = year;
+
+    const url = (typeof pkptApiUrls !== 'undefined') ? pkptApiUrls.charts : `${window.location.origin}/dashboard/chart-data`;
+    fetch(`${url}?year=${year}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // createStatusChart(data.data.status_distribution.core);
-                // createAdditionalStatusChart(data.data.status_distribution.additional);
-                createUnifiedStatusChart(data.data.status_distribution); // New Unified Chart
-                createBudgetChart(data.data.budget_comparison);
-                createTrendChart(data.data.monthly_trend);
+                renderTrendChart(data.data.monthly_trend);
+                renderFrequencyChart(data.data.status_distribution);
+                renderMonthlyStatusPolygon(data.data.monthly_status_distribution);
             }
         })
         .catch(error => console.error('Chart error:', error));
 }
 
-/*
-function createStatusChart(data) {
-    // Disabled (moved to createUnifiedStatusChart)
-}
-*/
-
-/*
-function createAdditionalStatusChart(data) {
-    // Disabled (moved to createUnifiedStatusChart)
-}
-*/
-
 /**
- * Create Unified Status Distribution Chart (Bar / Polygon Style)
+ * Render Modern Trend Chart
  */
-function createUnifiedStatusChart(distribution) {
-    const ctx = document.getElementById('unifiedStatusChart');
+function renderTrendChart(data) {
+    const ctx = document.getElementById('trendChartModern');
     if (!ctx) return;
 
-    if (charts.unifiedChart) {
-        charts.unifiedChart.destroy();
-    }
+    if (charts.trend) charts.trend.destroy();
 
-    const labels = [];
-    const counts = [];
-    const colors = [];
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth(); // 0-11
+    const selectedYear = parseInt(document.getElementById('dashboardYear')?.value || currentYear);
 
-    // Combine and category-sort labels
-    const core = distribution.core;
-    const additional = distribution.additional;
+    // Segment data for solid vs dashed
+    const isCurrentYear = (selectedYear === currentYear);
 
-    // Core PKPT
-    core.labels.forEach((label, i) => {
-        labels.push(label);
-        counts.push(core.data[i]);
-        const l = label.toLowerCase();
-        if (l.includes('terlaksana') && !l.includes('tidak')) colors.push('#10b981'); // Green
-        else if (l.includes('tidak')) colors.push('#ef4444'); // Red
-        else colors.push('#94a3b8'); // Gray
-    });
-
-    // Additional Tasks
-    additional.labels.forEach((label, i) => {
-        labels.push(label);
-        counts.push(additional.data[i]);
-        colors.push('#FAC70B'); // Yellow/Gold
-    });
-
-    charts.unifiedChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Jumlah Kegiatan',
-                data: counts,
-                backgroundColor: colors,
-                borderRadius: 8,
-                barPercentage: 0.6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { stepSize: 1 }
-                }
-            },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: function (context) {
-                            const value = context.parsed.y || 0;
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentage = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
-                            return `Jumlah: ${value} (${percentage}% dari Total)`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-
-/**
- * Create Budget Comparison Chart (Bar)
- */
-function createBudgetChart(data) {
-    const ctx = document.getElementById('budgetChart');
-    if (!ctx) return;
-
-    if (charts.budgetChart) {
-        charts.budgetChart.destroy();
-    }
-
-    charts.budgetChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: data.labels,
-            datasets: [
-                {
-                    label: 'Anggaran',
-                    data: data.anggaran,
-                    backgroundColor: '#1a1a2e',
-                    borderRadius: 6,
-                    barPercentage: 0.6
-                },
-                {
-                    label: 'Realisasi',
-                    data: data.realisasi,
-                    backgroundColor: '#10b981',
-                    borderRadius: 6,
-                    barPercentage: 0.6
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function (value) {
-                            return 'Rp ' + (value / 1000000).toFixed(0) + 'M';
-                        }
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function (context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            label += 'Rp ' + formatRupiah(context.parsed.y);
-                            return label;
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-/**
- * Create Monthly Trend Chart (Line)
- */
-function createTrendChart(data) {
-    const ctx = document.getElementById('trendChart');
-    if (!ctx) return;
-
-    if (charts.trendChart) {
-        charts.trendChart.destroy();
-    }
-
-    charts.trendChart = new Chart(ctx, {
+    charts.trend = new Chart(ctx, {
         type: 'line',
         data: {
             labels: data.labels,
             datasets: [
                 {
-                    label: 'Anggaran',
+                    label: 'Anggaran (Rencana)',
                     data: data.anggaran,
-                    borderColor: '#1a1a2e',
-                    backgroundColor: 'rgba(26, 26, 46, 0.1)',
-                    borderWidth: 3,
-                    pointBackgroundColor: '#1a1a2e',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
+                    borderColor: '#1a2a44',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
                     pointRadius: 4,
-                    pointHoverRadius: 6,
-                    fill: true,
-                    tension: 0.4
+                    pointBackgroundColor: '#1a2a44',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 1,
+                    tension: 0.4,
+                    fill: false,
+                    segment: {
+                        borderDash: (ctx) => isCurrentYear && ctx.p0DataIndex >= currentMonth ? [5, 5] : []
+                    }
                 },
                 {
-                    label: 'Realisasi',
+                    label: 'Realisasi (Actual)',
                     data: data.realisasi,
                     borderColor: '#10b981',
                     backgroundColor: 'rgba(16, 185, 129, 0.1)',
                     borderWidth: 3,
+                    pointRadius: 5,
                     pointBackgroundColor: '#10b981',
                     pointBorderColor: '#fff',
                     pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
+                    tension: 0.4,
                     fill: true,
-                    tension: 0.4
+                    segment: {
+                        borderDash: (ctx) => isCurrentYear && ctx.p0DataIndex >= currentMonth ? [5, 5] : []
+                    }
                 }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: true,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function (value) {
-                            return 'Rp ' + (value / 1000000).toFixed(0) + 'M';
+            aspectRatio: 2.5,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        label: function (context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            if (context.parsed.y !== null) {
+                                label += 'Rp ' + formatNumber(context.parsed.y);
+                            }
+                            return label;
                         }
                     }
                 }
             },
-            plugins: {
-                legend: {
-                    position: 'bottom'
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f1f5f9' },
+                    ticks: {
+                        font: { size: 11, family: 'Arial', weight: '500' },
+                        callback: value => (value / 1000000) + 'M',
+                        color: '#64748b'
+                    }
                 },
-                tooltip: {
-                    callbacks: {
-                        label: function (context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            label += 'Rp ' + formatRupiah(context.parsed.y);
-                            return label;
-                        }
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        font: { size: 11, family: 'Arial', weight: '500' },
+                        color: '#64748b'
+                    }
+                }
+            }
+        }
+    });
+
+    // Update the subtitle based on current context
+    const subtitle = document.getElementById('trendChartSubtitle');
+    if (subtitle) {
+        if (isCurrentYear) {
+            subtitle.innerHTML = `Data Realisasi dan Proyeksi Tahun ${currentYear}`;
+        } else {
+            subtitle.innerHTML = `Laporan Tahunan ${selectedYear} | Anggaran vs Realisasi Total`;
+        }
+    }
+}
+
+/**
+ * Render Frequency Bar Chart
+ */
+function renderFrequencyChart(dist) {
+    const ctx = document.getElementById('freqChartModern');
+    if (!ctx) return;
+
+    if (charts.freq) charts.freq.destroy();
+
+    const labels = dist.core.labels; // Jan, Feb, etc
+
+    charts.freq = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Program PKPT Utama',
+                    data: dist.core.data,
+                    backgroundColor: '#1a2a44',
+                    borderRadius: 4,
+                    barThickness: 24
+                },
+                {
+                    label: 'Penugasan Tambahan',
+                    data: dist.additional.data,
+                    backgroundColor: '#FAC70B',
+                    borderRadius: 4,
+                    barThickness: 24
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 2.5,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f1f5f9' },
+                    ticks: {
+                        stepSize: 2,
+                        font: { size: 11, family: 'Arial', weight: '500' },
+                        color: '#64748b'
+                    }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        font: { size: 11, family: 'Arial', weight: '500' },
+                        color: '#64748b'
                     }
                 }
             }
@@ -387,8 +359,239 @@ function createTrendChart(data) {
 }
 
 /**
- * Helper Functions
+ * Render Side Frequency Bar Chart
  */
+function renderSideFrequencyChart(dist) {
+    const ctx = document.getElementById('sideFreqChart');
+    if (!ctx) return;
+
+    if (charts.sideFreq) charts.sideFreq.destroy();
+
+    charts.sideFreq = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: dist.core.labels,
+            datasets: [
+                {
+                    label: 'PKPT Utama',
+                    data: dist.core.data,
+                    backgroundColor: '#10b981',
+                    borderRadius: 4,
+                    barThickness: 12
+                },
+                {
+                    label: 'Penugasan Tambahan',
+                    data: dist.additional.data,
+                    backgroundColor: '#FAC70B',
+                    borderRadius: 4,
+                    barThickness: 12
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 1.8,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f1f5f9' },
+                    ticks: { stepSize: 3, font: { size: 9 } }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 9 } }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Update Statistics Cards
+ */
+function updateStatistics(year) {
+    const url = (typeof pkptApiUrls !== 'undefined') ? pkptApiUrls.statistics : `${window.location.origin}/dashboard/statistics`;
+    fetch(`${url}?year=${year}`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                const data = result.data;
+
+                // Update Period Labels
+                document.querySelectorAll('.period-label').forEach(el => {
+                    el.textContent = `Tahunan ${year}`;
+                });
+
+                const totalProgramEl = document.getElementById('statTotalProgram');
+                const totalAnggaranEl = document.getElementById('statTotalAnggaran');
+                const totalRealisasiEl = document.getElementById('statTotalRealisasi');
+                const persentaseRealisasiEl = document.getElementById('statPersentaseRealisasi');
+
+                if (totalProgramEl) totalProgramEl.textContent = formatNumber(data.total_program);
+                if (totalAnggaranEl) totalAnggaranEl.textContent = formatNumber(data.total_anggaran);
+                if (totalRealisasiEl) totalRealisasiEl.textContent = formatNumber(data.total_realisasi);
+                if (persentaseRealisasiEl) persentaseRealisasiEl.innerHTML = Math.round(data.persentase_realisasi) + '<span class="unit-percent">%</span>';
+
+                // Update "Anggaran vs Realisasi" section
+
+                // Update "Anggaran vs Realisasi" section
+                const budgetValRealisasi = document.getElementById('budgetValRealisasi');
+                const budgetPercentRealisasi = document.getElementById('budgetPercentRealisasi');
+                const budgetProgressBar = document.getElementById('budgetProgressBar');
+                const budgetScaleTotal = document.getElementById('budgetScaleTotal');
+                const budgetScaleSisa = document.getElementById('budgetScaleSisa');
+                const statusPercentMain = document.getElementById('statusPercentMain');
+                const statusCountSub = document.getElementById('statusCountSub');
+
+                if (budgetValRealisasi) budgetValRealisasi.textContent = formatNumber(Math.round(data.total_realisasi / 1000)) + '.000';
+                if (budgetPercentRealisasi) budgetPercentRealisasi.textContent = Math.round(data.persentase_realisasi) + '% REALISASI';
+                if (budgetProgressBar) budgetProgressBar.style.width = data.persentase_realisasi + '%';
+                if (budgetScaleTotal) budgetScaleTotal.textContent = 'Anggaran: Rp ' + formatNumber(data.total_anggaran);
+                if (budgetScaleSisa) budgetScaleSisa.textContent = 'Sisa: Rp ' + formatNumber(data.sisa_anggaran);
+                if (statusPercentMain) statusPercentMain.textContent = Math.round(data.persentase_pelaksanaan) + '%';
+                if (statusCountSub) statusCountSub.textContent = formatNumber(data.total_program);
+            }
+        })
+        .catch(error => console.error('Statistics error:', error));
+}
+
+/**
+ * Render Monthly Status Polygon Frequency Chart
+ */
+function renderMonthlyStatusPolygon(data) {
+    const ctx = document.getElementById('executionBarChart');
+    if (!ctx) return;
+
+    if (charts.executionBar) charts.executionBar.destroy();
+
+    charts.executionBar = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.labels,
+            datasets: [
+                {
+                    label: 'Terlaksana',
+                    data: data.terlaksana,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                    borderWidth: 3,
+                    pointRadius: 5,
+                    pointBackgroundColor: '#10b981',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                },
+                {
+                    label: 'Tidak Terlaksana',
+                    data: data.tidak_terlaksana,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                    borderWidth: 3,
+                    pointRadius: 5,
+                    pointBackgroundColor: '#ef4444',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    align: 'start',
+                    labels: {
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        padding: 15,
+                        font: {
+                            family: 'Arial',
+                            size: 12,
+                            weight: '600'
+                        }
+                    }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    titleColor: '#1e293b',
+                    bodyColor: '#475569',
+                    borderColor: '#e2e8f0',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: true,
+                    callbacks: {
+                        title: function (context) {
+                            return context[0].label;
+                        },
+                        label: function (context) {
+                            const label = context.dataset.label || '';
+                            const value = context.parsed.y;
+                            return ` ${label}: ${value}`;
+                        },
+                        afterBody: function (context) {
+                            const terlaksana = context[0].chart.data.datasets[0].data[context[0].dataIndex];
+                            const tidakTerlaksana = context[0].chart.data.datasets[1].data[context[0].dataIndex];
+                            const total = terlaksana + tidakTerlaksana;
+                            return `\nTotal: ${total} kegiatan`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: '#f1f5f9',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        stepSize: 1,
+                        font: {
+                            family: 'Arial',
+                            size: 11,
+                            weight: '500'
+                        },
+                        color: '#64748b'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false,
+                        drawBorder: false
+                    },
+                    ticks: {
+                        font: {
+                            family: 'Arial',
+                            size: 11,
+                            weight: '500'
+                        },
+                        color: '#64748b'
+                    }
+                }
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false
+            }
+        }
+    });
+}
+
+/**
+ * Helpers
+ */
+
 function formatDate(date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -396,11 +599,7 @@ function formatDate(date) {
     return `${year}-${month}-${day}`;
 }
 
-function truncateText(text, maxLength) {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
-}
-
-function formatRupiah(number) {
-    return new Intl.NumberFormat('id-ID').format(number);
+function formatNumber(num) {
+    if (num === null || num === undefined) return '0';
+    return new Intl.NumberFormat('id-ID').format(num);
 }

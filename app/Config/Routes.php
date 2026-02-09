@@ -14,9 +14,10 @@ $routes->get('/', 'Auth::login');
 $routes->get('login', 'Auth::login');
 $routes->post('login', 'Auth::attempt');
 $routes->get('logout', 'Auth::logout');
-$routes->get('/dashboard', 'Dashboard::index');
-$routes->get('/dashboard/calendar-data', 'Dashboard::getCalendarData');
-$routes->get('/dashboard/chart-data', 'Dashboard::getChartData');
+$routes->get('dashboard', 'Dashboard::index');
+$routes->get('dashboard/calendar-data', 'Dashboard::getCalendarData');
+$routes->get('dashboard/chart-data', 'Dashboard::getChartData');
+$routes->get('dashboard/statistics', 'Dashboard::getStatistics');
 
 /**
  * Routes: Program Kerja

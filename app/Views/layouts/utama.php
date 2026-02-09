@@ -6,7 +6,7 @@
     <title><?= $judul ?? 'PKPT - Kemenko PMK' ?></title>
     
     <!-- CSS -->
-    <link rel="stylesheet" href="<?= base_url('assets/css/program-kerja.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('assets/css/program-kerja.css?v=' . time()) ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/footer.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/dashboard.css') ?>">
     
@@ -76,26 +76,23 @@
         </div>
     </main>
 
-    <!-- Announcement Modal -->
-    <div id="announcementModal" class="modal-overlay">
-        <div class="modal-content-wrapper">
-            <div class="modal-header-announcement">
+    <!-- Announcement Popover -->
+    <div id="announcementPopover" class="announcement-popover">
+        <div class="popover-content">
+            <div class="popover-header">
                 <i class="fas fa-bullhorn animated-bell"></i>
                 <h2>Pengumuman Penting!</h2>
+                <button id="closeAnnouncement" class="btn-close-popover">&times;</button>
             </div>
-            <div class="modal-body-announcement text-center">
+            <div class="popover-body text-center">
                 <p>Selamat datang di Aplikasi PKPT.</p>
-                <p>Terdapat beberapa kegiatan yang akan segera dilaksanakan dalam waktu dekat. 
-                   Mohon untuk mengecek kembali kesiapan data dan rencana kegiatannya.</p>
+                <p>Terdapat beberapa kegiatan yang akan segera dilaksanakan. Mohon cek kembali kesiapan data.</p>
                 
-                <div class="announcement-action">
-                    <a href="<?= base_url('program-kerja') ?>" class="btn-check-data">
-                        <i class="fas fa-arrow-right"></i> Cek Data Program Kerja
+                <div class="popover-action">
+                    <a href="<?= base_url('program-kerja') ?>" class="btn-check-data-small">
+                        Cek Program Kerja
                     </a>
                 </div>
-            </div>
-            <div class="modal-footer-announcement">
-                <button id="closeAnnouncement" class="btn-close-announcement">Saya Mengerti</button>
             </div>
         </div>
     </div>
@@ -141,9 +138,30 @@
             </div>
         </div>
     </footer>
+    
+    <!-- Policy Modal -->
+    <div id="policyModal" class="modal-overlay">
+        <div class="modal-content-wrapper policy-modal-wrapper">
+            <div class="modal-header-policy">
+                <i class="fas fa-shield-halved animated-icon"></i>
+                <h2>KETENTUAN & KEBIJAKAN:<br>KOMITMEN PENUGASAN PKPT</h2>
+            </div>
+            <div class="modal-body-policy">
+                <div class="policy-alert-box">
+                    <p>Seluruh item dalam daftar ini merupakan <strong>Target Minimal (H-min)</strong> yang telah ditetapkan dan disetujui oleh Pimpinan. Mengingat sifatnya sebagai <strong>Komitmen Baku</strong>, data ini tidak diperkenankan untuk diubah atau dihapus secara sepihak.</p>
+                    <p>Segala bentuk penyesuaian wajib melalui <strong>Mekanisme Revisi Resmi</strong> dengan otorisasi dari <strong>Inspektur</strong> demi menjaga integritas serta akurasi pelaporan kinerja tahunan.</p>
+                </div>
+            </div>
+            <div class="modal-footer-policy">
+                <button id="confirmPolicy" class="btn-confirm-policy">
+                    <i class="fas fa-check-double"></i> Saya Memahami & Menyetujui Ketentuan
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- JavaScript -->
-    <script src="<?= base_url('assets/js/program-kerja.js') ?>"></script>
+    <script src="<?= base_url('assets/js/program-kerja.js?v=' . time()) ?>"></script>
     <?= $this->renderSection('scripts') ?>
 </body>
 </html>

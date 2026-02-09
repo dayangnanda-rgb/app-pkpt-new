@@ -119,31 +119,106 @@
                 <!-- Pelaksana Section -->
                 <div class="form-group-full" style="grid-column: span 2; margin-top: 10px;">
                     <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
-                        <h4 style="margin: 0 0 15px 0; color: #1e293b; font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 10px;">
-                            <i class="fas fa-users" style="color: #1a2a44;"></i> Tim Pelaksana
-                        </h4>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label for="pengendali_teknis" class="form-label">Pengendali Teknis</label>
-                                <input type="text" id="pengendali_teknis" name="pengendali_teknis" class="form-input"
-                                    value="<?= old('pengendali_teknis', $program_kerja['pengendali_teknis'] ?? '') ?>"
-                                    placeholder="Nama Pengendali Teknis">
-                            </div>
-                            <div class="form-group">
-                                <label for="ketua_tim" class="form-label">Ketua Tim</label>
-                                <input type="text" id="ketua_tim" name="ketua_tim" class="form-input"
-                                    value="<?= old('ketua_tim', $program_kerja['ketua_tim'] ?? ($defaultPelaksana ?? '')) ?>"
-                                    placeholder="Nama Ketua Tim">
-                            </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h4 style="margin: 0; color: #1e293b; font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-users" style="color: #1a2a44;"></i> Tim Pelaksana
+                            </h4>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="tambahBarisPelaksana()">
+                                <i class="fas fa-plus mr-1"></i> Tambah Pelaksana
+                            </button>
                         </div>
-                        <div class="form-group" style="margin-top: 15px; margin-bottom: 0;">
-                            <label for="anggota_tim" class="form-label">Anggota Tim</label>
-                            <textarea id="anggota_tim" name="anggota_tim" class="form-input" rows="3" 
-                                placeholder="Masukkan nama anggota tim (pisahkan dengan koma atau baris baru)"><?= old('anggota_tim', $program_kerja['anggota_tim'] ?? '') ?></textarea>
+
+                        <div class="table-responsive">
+                            <table class="table" id="table-tim">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 30%;">Peran</th>
+                                        <th>Nama Pelaksana</th>
+                                        <th style="width: 50px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="container-pelaksana">
+                                    <?php 
+                                    $roles = ['Pengendali Teknis', 'Ketua Tim', 'Anggota', 'Auditor Madya', 'Auditor Muda'];
+                                    $timData = isset($tim_pelaksana) ? $tim_pelaksana : [];
+                                    
+                                    // If empty (new form), add one default row
+                                    if (empty($timData)): ?>
+                                        <tr class="row-pelaksana">
+                                            <td>
+                                                <select name="tim_peran[]" class="form-input">
+                                                    <?php foreach ($roles as $role): ?>
+                                                        <option value="<?= $role ?>" <?= $role === 'Ketua Tim' ? 'selected' : '' ?>><?= $role ?></option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <input type="text" name="tim_nama[]" class="form-input" placeholder="Nama Pelaksana" value="<?= $defaultPelaksana ?? '' ?>">
+                                            </td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn-remove-row" onclick="hapusBarisPelaksana(this)" title="Hapus">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    <?php else: ?>
+                                        <?php foreach ($timData as $tp): ?>
+                                            <tr class="row-pelaksana">
+                                                <td>
+                                                    <select name="tim_peran[]" class="form-input">
+                                                        <?php foreach ($roles as $role): ?>
+                                                            <option value="<?= $role ?>" <?= ($tp['peran'] == $role) ? 'selected' : '' ?>><?= $role ?></option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                </td>
+                                                <td>
+                                                    <input type="text" name="tim_nama[]" class="form-input" placeholder="Nama Pelaksana" value="<?= esc($tp['nama_pelaksana']) ?>">
+                                                </td>
+                                                <td class="text-center">
+                                                    <button type="button" class="btn-remove-row" onclick="hapusBarisPelaksana(this)" title="Hapus">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
                         </div>
-                        <!-- Hidden pelaksana for backward compatibility/internal reference -->
-                        <input type="hidden" name="pelaksana" value="<?= old('pelaksana', $program_kerja['pelaksana'] ?? ($defaultPelaksana ?? '')) ?>">
+                        
+                        <style>
+                            .btn-remove-row {
+                                background: #fee2e2;
+                                color: #ef4444;
+                                border: none;
+                                width: 28px;
+                                height: 28px;
+                                border-radius: 6px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                            }
+                            .btn-remove-row:hover {
+                                background: #fecaca;
+                                transform: scale(1.1);
+                            }
+                            #table-tim th {
+                                background: #f1f5f9;
+                                padding: 10px;
+                                font-size: 0.8rem;
+                                color: #64748b;
+                                text-transform: uppercase;
+                                letter-spacing: 0.025em;
+                            }
+                            #table-tim td {
+                                padding: 8px 5px;
+                                vertical-align: middle;
+                            }
+                        </style>
                     </div>
+                </div>
                 </div>
             </div>
         </div>
@@ -272,10 +347,10 @@
                     </select>
                 </div>
 
-                <!-- Alasan Tidak Terlaksana (Conditional) -->
-                <div id="group-alasan" class="form-group" style="display: <?= (old('status', $program_kerja['status'] ?? '') == 'Tidak Terlaksana') ? 'block' : 'none' ?>; grid-column: 1 / -1;">
+                <!-- Alasan Tidak Terlaksana / Dibatalkan (Conditional) -->
+                <div id="group-alasan" class="form-group" style="display: <?= in_array(old('status', $program_kerja['status'] ?? ''), ['Tidak Terlaksana', 'Dibatalkan']) ? 'block' : 'none' ?>; grid-column: 1 / -1;">
                     <label for="alasan_tidak_terlaksana" class="form-label">
-                        Alasan Tidak Terlaksana <span class="required">*</span>
+                        <span id="label-alasan">Alasan Tidak Terlaksana</span> <span class="required">*</span>
                     </label>
                     <textarea 
                         id="alasan_tidak_terlaksana" 
@@ -304,8 +379,8 @@
 </div>
 
 <!-- Document Management Modal (Reusable) -->
-<!-- Document Management Modal (Reusable) -->
 <?= $this->include('program_kerja/partials/modal_dokumen') ?>
+<?= $this->include('program_kerja/partials/modal_preview') ?>
 
 <?= $this->endSection() ?>
 
@@ -318,23 +393,37 @@
     let pendingFiles = [];
 
     document.addEventListener('DOMContentLoaded', () => {
-        // Toggle Alasan Tidak Terlaksana
+        // Toggle Alasan Tidak Terlaksana / Dibatalkan
         const statusSelect = document.getElementById('status');
         const groupAlasan = document.getElementById('group-alasan');
         const inputAlasan = document.getElementById('alasan_tidak_terlaksana');
+        const labelAlasan = document.getElementById('label-alasan');
+
+        function updateAlasanField() {
+            const status = statusSelect.value;
+            if (status === 'Tidak Terlaksana' || status === 'Dibatalkan') {
+                groupAlasan.style.display = 'block';
+                inputAlasan.setAttribute('required', 'required');
+                
+                if (status === 'Tidak Terlaksana') {
+                    labelAlasan.textContent = 'Alasan Tidak Terlaksana';
+                    inputAlasan.placeholder = 'Berikan alasan mengapa kegiatan ini tidak terlaksana';
+                } else {
+                    labelAlasan.textContent = 'Alasan Dibatalkan';
+                    inputAlasan.placeholder = 'Berikan alasan mengapa kegiatan ini dibatalkan';
+                }
+            } else {
+                groupAlasan.style.display = 'none';
+                inputAlasan.removeAttribute('required');
+                inputAlasan.value = ''; // CLEAR THE VALUE
+                document.getElementById('error-alasan').style.display = 'none';
+            }
+        }
 
         if (statusSelect) {
-            statusSelect.addEventListener('change', function() {
-                if (this.value === 'Tidak Terlaksana' || this.value === 'Dibatalkan') {
-                    groupAlasan.style.display = 'block';
-                    inputAlasan.setAttribute('required', 'required');
-                } else {
-                    groupAlasan.style.display = 'none';
-                    inputAlasan.removeAttribute('required');
-                    inputAlasan.value = ''; // CLEAR THE VALUE
-                    document.getElementById('error-alasan').style.display = 'none';
-                }
-            });
+            statusSelect.addEventListener('change', updateAlasanField);
+            // Run on load to handle edit mode or back button
+            updateAlasanField();
         }
 
         const form = document.querySelector('form.form');
@@ -699,14 +788,61 @@
                         </div>
                     </div>
                 </div>
-                <!-- Only Trash Icon -->
-                <button onclick="hapusDokumenAjax(${doc.id})" type="button" style="color: #ef4444; padding: 8px; border-radius: 4px; border: none; background: transparent; cursor: pointer; transition: color 0.2s;" title="Hapus">
-                    <i class="fas fa-trash-alt"></i>
-                </button>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <!-- Preview Icon -->
+                    <button onclick="bukaPreview(${doc.id}, '${fileName}')" type="button" style="color: #6366f1; padding: 8px; border-radius: 4px; border: none; background: transparent; cursor: pointer; transition: color 0.2s;" title="Preview">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <!-- Trash Icon -->
+                    <button onclick="hapusDokumenAjax(${doc.id})" type="button" style="color: #ef4444; padding: 8px; border-radius: 4px; border: none; background: transparent; cursor: pointer; transition: color 0.2s;" title="Hapus">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
             </div>`;
         });
         html += '</div>';
         container.innerHTML = html;
+    }
+    function tambahBarisPelaksana() {
+        const container = document.getElementById('container-pelaksana');
+        const roles = ['Pengendali Teknis', 'Ketua Tim', 'Anggota', 'Auditor Madya', 'Auditor Muda'];
+        
+        const tr = document.createElement('tr');
+        tr.className = 'row-pelaksana';
+        
+        let optionsHtml = '';
+        roles.forEach(role => {
+            optionsHtml += `<option value="${role}">${role}</option>`;
+        });
+        
+        tr.innerHTML = `
+            <td>
+                <select name="tim_peran[]" class="form-input">
+                    ${optionsHtml}
+                </select>
+            </td>
+            <td>
+                <input type="text" name="tim_nama[]" class="form-input" placeholder="Nama Pelaksana">
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn-remove-row" onclick="hapusBarisPelaksana(this)" title="Hapus">
+                    <i class="fas fa-times"></i>
+                </button>
+            </td>
+        `;
+        container.appendChild(tr);
+    }
+
+    function hapusBarisPelaksana(btn) {
+        const row = btn.closest('tr');
+        const totalRows = document.querySelectorAll('.row-pelaksana').length;
+        if (totalRows > 1) {
+            row.remove();
+        } else {
+            // Just clear the inputs if it's the last row
+            row.querySelector('input').value = '';
+            row.querySelector('select').selectedIndex = 0;
+        }
     }
 </script>
 <?= $this->endSection() ?>

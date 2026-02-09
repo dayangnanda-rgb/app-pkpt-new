@@ -71,24 +71,34 @@
                         </div>
                     </div>
 
-                    <div class="detail-item detail-item-full" style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 10px;">
-                        <label class="detail-label" style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-weight: 700; color: #1a2a44;">
-                            <i class="fas fa-users"></i> Tim Pelaksana
+                    <div class="detail-item detail-item-full" style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 15px;">
+                        <label class="detail-label" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; font-weight: 700; color: #1a2a44; font-size: 0.95rem;">
+                            <i class="fas fa-users" style="color: #6366f1;"></i> Tim Pelaksana & Peran
                         </label>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                            <div>
-                                <label class="detail-label" style="font-size: 0.75rem; color: #64748b; text-transform: uppercase;">Pengendali Teknis</label>
-                                <div class="detail-value"><?= !empty($program_kerja['pengendali_teknis']) ? esc($program_kerja['pengendali_teknis']) : '<span class="text-muted">-</span>' ?></div>
+                        
+                        <?php if (!empty($tim_pelaksana)): ?>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
+                                <?php foreach ($tim_pelaksana as $tp): ?>
+                                    <div style="background: white; padding: 12px 15px; border-radius: 10px; border: 1px solid #edf2f7; display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                                        <div style="width: 38px; height: 38px; background: #e0e7ff; color: #4338ca; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0;">
+                                            <i class="fas fa-user-tie"></i>
+                                        </div>
+                                        <div style="min-width: 0;">
+                                            <div style="font-size: 0.7rem; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">
+                                                <?= esc($tp['peran']) ?>
+                                            </div>
+                                            <div style="font-size: 0.9rem; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<?= esc($tp['nama_pelaksana']) ?>">
+                                                <?= esc($tp['nama_pelaksana']) ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
                             </div>
-                            <div>
-                                <label class="detail-label" style="font-size: 0.75rem; color: #64748b; text-transform: uppercase;">Ketua Tim</label>
-                                <div class="detail-value"><?= !empty($program_kerja['ketua_tim']) ? esc($program_kerja['ketua_tim']) : (!empty($program_kerja['pelaksana']) ? esc($program_kerja['pelaksana']) : '<span class="text-muted">-</span>') ?></div>
+                        <?php else: ?>
+                            <div style="text-align: center; padding: 20px; color: #94a3b8; font-style: italic;">
+                                <i class="fas fa-info-circle mr-1"></i> Data tim pelaksana belum tersedia atau belum diatur.
                             </div>
-                        </div>
-                        <div style="margin-top: 15px;">
-                            <label class="detail-label" style="font-size: 0.75rem; color: #64748b; text-transform: uppercase;">Anggota Tim</label>
-                            <div class="detail-value detail-value-text"><?= !empty($program_kerja['anggota_tim']) ? nl2br(esc($program_kerja['anggota_tim'])) : '<span class="text-muted">-</span>' ?></div>
-                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -416,8 +426,8 @@ function updatePreview(docs) {
                    onclick="bukaPreview(${doc.id}, '${fileName}')"
                    class="btn btn-sm btn-outline-secondary" 
                    style="margin-left: 12px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; border: 1px solid #d1d5db;">
-                    <span>Unduh</span>
-                    <i class="fas fa-download" style="font-size: 0.8em;"></i>
+                    <span>Lihat</span>
+                    <i class="fas fa-eye" style="font-size: 0.8em;"></i>
                 </button>
             </div>
         `;

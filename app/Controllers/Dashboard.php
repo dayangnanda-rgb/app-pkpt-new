@@ -28,9 +28,15 @@ class Dashboard extends BaseController
      */
     public function index()
     {
+        $year = $this->request->getGet('year');
+        if (!$year) {
+            $year = session()->get('pkpt_tahun_aktif') ?? date('Y');
+        }
+        
         $data['judul'] = 'Dashboard PKPT';
-        $data['statistik'] = $this->programKerjaModel->ambilStatistik();
-        $data['upcoming'] = $this->programKerjaModel->getUpcomingActivities(5);
+        $data['statistik'] = $this->programKerjaModel->ambilStatistik($year);
+        $data['available_years'] = $this->programKerjaModel->getYears();
+        $data['tahun_aktif'] = $year;
         
         return view('dashboard/dashboard', $data);
     }
@@ -42,7 +48,10 @@ class Dashboard extends BaseController
      */
     public function getCalendarData()
     {
-        $year = $this->request->getGet('year') ?? date('Y');
+        $year = $this->request->getGet('year');
+        if (!$year) {
+            $year = session()->get('pkpt_tahun_aktif') ?? date('Y');
+        }
         $month = $this->request->getGet('month') ?? date('m');
         
         $activities = $this->programKerjaModel->getActivitiesByMonth($year, $month);
@@ -73,12 +82,16 @@ class Dashboard extends BaseController
      */
     public function getChartData()
     {
-        $year = $this->request->getGet('year') ?? date('Y');
+        $year = $this->request->getGet('year');
+        if (!$year) {
+            $year = session()->get('pkpt_tahun_aktif') ?? date('Y');
+        }
         
         $data = [
-            'status_distribution' => $this->programKerjaModel->getStatusDistribution(),
+            'status_distribution' => $this->programKerjaModel->getStatusDistribution($year),
             'monthly_trend' => $this->programKerjaModel->getMonthlyTrend($year),
-            'budget_comparison' => $this->programKerjaModel->getBudgetComparison()
+            'budget_comparison' => $this->programKerjaModel->getBudgetComparison($year),
+            'monthly_status_distribution' => $this->programKerjaModel->getMonthlyStatusDistribution($year)
         ];
         
         return $this->response->setJSON([
@@ -86,6 +99,30 @@ class Dashboard extends BaseController
             'data' => $data
         ]);
     }
+
+    /**
+     * API: Ambil data statistik (AJAX)
+     * 
+     * @return ResponseInterface
+     */
+    public function getStatistics()
+    {
+        $year = $this->request->getGet('year');
+        if (!$year) {
+            $year = session()->get('pkpt_tahun_aktif') ?? date('Y');
+        } else {
+            // Sync year back to session if explicitly changed
+            session()->set('pkpt_tahun_aktif', $year);
+        }
+        
+        $statistik = $this->programKerjaModel->ambilStatistik($year);
+        
+        return $this->response->setJSON([
+            'success' => true,
+            'data' => $statistik
+        ]);
+    }
+
 
     /**
      * Helper: Tentukan warna berdasarkan status

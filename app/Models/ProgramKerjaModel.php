@@ -133,13 +133,19 @@ class ProgramKerjaModel extends Model
          *    sehingga struktur data tetap konsisten (3 bagian).
          */
         $subQuery = $this->db->table('program_kerja_dokumen')
-            ->select("GROUP_CONCAT(CONCAT(id, ':', nama_file, ':', COALESCE(tipe_dokumen, 'Dokumen')) SEPARATOR '|')")
+            ->select("GROUP_CONCAT(CONCAT(id, ':', COALESCE(nama_asli, nama_file), ':', COALESCE(tipe_dokumen, 'Dokumen')) SEPARATOR '|')")
             ->where('program_kerja_id = program_kerja.id')
             ->orderBy('created_at', 'DESC')
             ->getCompiledSelect();
 
+        $subQueryTeam = $this->db->table('program_kerja_pelaksana')
+            ->select("GROUP_CONCAT(CONCAT(peran, ':', nama_pelaksana) SEPARATOR '|')")
+            ->where('program_kerja_id = program_kerja.id')
+            ->getCompiledSelect();
+
         $query = $this->select('program_kerja.*')
                       ->select("($subQuery) as dokumen_output") // Injeksi subquery ke main query
+                      ->select("($subQueryTeam) as tim_pelaksana")
                       ->orderBy('created_at', 'DESC');
         
         // Filter berdasarkan tahun jika diminta
@@ -176,8 +182,14 @@ class ProgramKerjaModel extends Model
             ->orderBy('created_at', 'DESC')
             ->getCompiledSelect();
 
+        $subQueryTeam = $this->db->table('program_kerja_pelaksana')
+            ->select("GROUP_CONCAT(CONCAT(peran, ':', nama_pelaksana) SEPARATOR '|')")
+            ->where('program_kerja_id = program_kerja.id')
+            ->getCompiledSelect();
+
         $query = $this->select('program_kerja.*')
                       ->select("($subQuery) as dokumen_output")
+                      ->select("($subQueryTeam) as tim_pelaksana")
                       ->groupStart()
                         ->like('nama_kegiatan', $keyword)
                         ->orLike('pelaksana', $keyword)
@@ -235,9 +247,13 @@ class ProgramKerjaModel extends Model
      * 
      * @return float
      */
-    public function hitungTotalAnggaran()
+    public function hitungTotalAnggaran($tahun = null)
     {
-        $result = $this->selectSum('anggaran')->first();
+        $query = $this->selectSum('anggaran');
+        if ($tahun) {
+            $query->where('tahun', $tahun);
+        }
+        $result = $query->first();
         return $result['anggaran'] ?? 0;
     }
 
@@ -246,9 +262,13 @@ class ProgramKerjaModel extends Model
      * 
      * @return float
      */
-    public function hitungTotalRealisasi()
+    public function hitungTotalRealisasi($tahun = null)
     {
-        $result = $this->selectSum('realisasi_anggaran')->first();
+        $query = $this->selectSum('realisasi_anggaran');
+        if ($tahun) {
+            $query->where('tahun', $tahun);
+        }
+        $result = $query->first();
         return $result['realisasi_anggaran'] ?? 0;
     }
 
@@ -257,8 +277,11 @@ class ProgramKerjaModel extends Model
      * 
      * @return int
      */
-    public function hitungJumlahProgram()
+    public function hitungJumlahProgram($tahun = null)
     {
+        if ($tahun) {
+            return $this->where('tahun', $tahun)->countAllResults();
+        }
         return $this->countAllResults();
     }
 
@@ -276,15 +299,20 @@ class ProgramKerjaModel extends Model
      * 
      * @return array Data statistik
      */
-    public function ambilStatistik()
+    public function ambilStatistik($tahun = null)
     {
+        $totalAnggaran = $this->hitungTotalAnggaran($tahun);
+        $totalRealisasi = $this->hitungTotalRealisasi($tahun);
+        $sisaAnggaran = $totalAnggaran - $totalRealisasi;
+
         return [
-            'total_program'          => $this->hitungJumlahProgram(),
-            'total_anggaran'         => $this->hitungTotalAnggaran(),
-            'total_realisasi'        => $this->hitungTotalRealisasi(),
-            'persentase_realisasi'   => $this->hitungPersentaseRealisasi(),
-            'persentase_capaian'     => $this->hitungPersentaseCapaian(),
-            'persentase_pelaksanaan' => $this->hitungPersentasePelaksanaan()
+            'total_program'          => $this->hitungJumlahProgram($tahun),
+            'total_anggaran'         => $totalAnggaran,
+            'total_realisasi'        => $totalRealisasi,
+            'sisa_anggaran'          => $sisaAnggaran,
+            'persentase_realisasi'   => $this->hitungPersentaseRealisasi($tahun),
+            'persentase_capaian'     => $this->hitungPersentaseCapaian($tahun),
+            'persentase_pelaksanaan' => $this->hitungPersentasePelaksanaan($tahun)
         ];
     }
 
@@ -293,10 +321,10 @@ class ProgramKerjaModel extends Model
      * 
      * @return float
      */
-    private function hitungPersentaseRealisasi()
+    private function hitungPersentaseRealisasi($tahun = null)
     {
-        $totalAnggaran = $this->hitungTotalAnggaran();
-        $totalRealisasi = $this->hitungTotalRealisasi();
+        $totalAnggaran = $this->hitungTotalAnggaran($tahun);
+        $totalRealisasi = $this->hitungTotalRealisasi($tahun);
         
         if ($totalAnggaran > 0) {
             return round(($totalRealisasi / $totalAnggaran) * 100, 0);
@@ -310,10 +338,16 @@ class ProgramKerjaModel extends Model
      * 
      * @return float
      */
-    private function hitungPersentaseCapaian()
+    private function hitungPersentaseCapaian($tahun = null)
     {
-        $terlaksana = $this->where('status', 'Terlaksana')->countAllResults();
-        $tidakTerlaksana = $this->where('status', 'Tidak Terlaksana')->countAllResults();
+        $queryTerlaksana = $this->where('status', 'Terlaksana');
+        if ($tahun) $queryTerlaksana->where('tahun', $tahun);
+        $terlaksana = $queryTerlaksana->countAllResults();
+
+        $queryTidakTerlaksana = $this->where('status', 'Tidak Terlaksana');
+        if ($tahun) $queryTidakTerlaksana->where('tahun', $tahun);
+        $tidakTerlaksana = $queryTidakTerlaksana->countAllResults();
+
         $totalCore = $terlaksana + $tidakTerlaksana;
         
         if ($totalCore > 0) {
@@ -329,10 +363,13 @@ class ProgramKerjaModel extends Model
      * 
      * @return float
      */
-    private function hitungPersentasePelaksanaan()
+    private function hitungPersentasePelaksanaan($tahun = null)
     {
-        $totalProgram = $this->countAllResults();
-        $terlaksana = $this->where('status', 'Terlaksana')->countAllResults();
+        $totalProgram = $this->hitungJumlahProgram($tahun);
+        
+        $queryTerlaksana = $this->where('status', 'Terlaksana');
+        if ($tahun) $queryTerlaksana->where('tahun', $tahun);
+        $terlaksana = $queryTerlaksana->countAllResults();
         
         if ($totalProgram > 0) {
             return round(($terlaksana / $totalProgram) * 100, 0);
@@ -366,11 +403,13 @@ class ProgramKerjaModel extends Model
      * 
      * @return array
      */
-    public function getStatusDistribution()
+    public function getStatusDistribution($tahun = null)
     {
-        $result = $this->select('status, COUNT(*) as count')
-                       ->groupBy('status')
-                       ->findAll();
+        $query = $this->select('status, COUNT(*) as count');
+        if ($tahun) {
+            $query->where('tahun', $tahun);
+        }
+        $result = $query->groupBy('status')->findAll();
         
         $groups = [
             'core' => [
@@ -395,6 +434,46 @@ class ProgramKerjaModel extends Model
         }
         
         return $groups;
+    }
+
+    /**
+     * Ambil distribusi status bulanan untuk polygon frequency chart
+     * 
+     * @param int $year Tahun
+     * @return array
+     */
+    public function getMonthlyStatusDistribution($year)
+    {
+        $months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+        $terlaksana = [];
+        $tidakTerlaksana = [];
+        
+        for ($i = 1; $i <= 12; $i++) {
+            $startDate = sprintf('%04d-%02d-01', $year, $i);
+            $endDate = date('Y-m-t', strtotime($startDate));
+            
+            // Count Terlaksana
+            $countTerlaksana = $this->where('tahun', $year)
+                                    ->where('status', 'Terlaksana')
+                                    ->where('tanggal_selesai >=', $startDate)
+                                    ->where('tanggal_selesai <=', $endDate)
+                                    ->countAllResults();
+            $terlaksana[] = $countTerlaksana;
+            
+            // Count Tidak Terlaksana
+            $countTidakTerlaksana = $this->where('tahun', $year)
+                                         ->where('status', 'Tidak Terlaksana')
+                                         ->where('tanggal_selesai >=', $startDate)
+                                         ->where('tanggal_selesai <=', $endDate)
+                                         ->countAllResults();
+            $tidakTerlaksana[] = $countTidakTerlaksana;
+        }
+        
+        return [
+            'labels' => $months,
+            'terlaksana' => $terlaksana,
+            'tidak_terlaksana' => $tidakTerlaksana
+        ];
     }
 
     /**
@@ -437,42 +516,27 @@ class ProgramKerjaModel extends Model
         ];
     }
 
-    /**
-     * Ambil kegiatan yang akan datang
-     * 
-     * @param int $limit Jumlah data
-     * @return array
-     */
-    public function getUpcomingActivities($limit = 5)
-    {
-        $today = date('Y-m-d');
-        
-        return $this->where('tanggal_mulai >=', $today)
-                    ->orderBy('tanggal_mulai', 'ASC')
-                    ->limit($limit)
-                    ->findAll();
-    }
 
     /**
      * Ambil perbandingan anggaran vs realisasi
      * 
      * @return array
      */
-    public function getBudgetComparison()
+    public function getBudgetComparison($tahun = null)
     {
         $statuses = ['Terlaksana', 'Tidak Terlaksana', 'Penugasan Tambahan'];
         $anggaran = [];
         $realisasi = [];
         
         foreach ($statuses as $status) {
-            $budgetResult = $this->selectSum('anggaran')
-                                 ->where('status', $status)
-                                 ->first();
+            $budgetQuery = $this->selectSum('anggaran')->where('status', $status);
+            if ($tahun) $budgetQuery->where('tahun', $tahun);
+            $budgetResult = $budgetQuery->first();
             $anggaran[] = $budgetResult['anggaran'] ?? 0;
             
-            $realizationResult = $this->selectSum('realisasi_anggaran')
-                                      ->where('status', $status)
-                                      ->first();
+            $realizationQuery = $this->selectSum('realisasi_anggaran')->where('status', $status);
+            if ($tahun) $realizationQuery->where('tahun', $tahun);
+            $realizationResult = $realizationQuery->first();
             $realisasi[] = $realizationResult['realisasi_anggaran'] ?? 0;
         }
         
