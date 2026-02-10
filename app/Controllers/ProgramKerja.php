@@ -86,6 +86,11 @@ class ProgramKerja extends BaseController
         }
         $perPage = 10;
 
+        // Default to active year if no year is selected and no search keyword used
+        if ($tahun === null && !$keyword) {
+            $tahun = session()->get('pkpt_tahun_aktif') ?? date('Y');
+        }
+
         // Ambil daftar tahun available untuk dropdown
         $availableYears = $this->programKerjaModel->getYears();
 

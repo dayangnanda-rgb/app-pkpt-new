@@ -189,13 +189,16 @@ class ProgramKerjaModel extends Model
 
         $query = $this->select('program_kerja.*')
                       ->select("($subQuery) as dokumen_output")
-                      ->select("($subQueryTeam) as tim_pelaksana")
-                      ->groupStart()
-                        ->like('nama_kegiatan', $keyword)
-                        ->orLike('pelaksana', $keyword)
-                        ->orLike('unit_kerja', $keyword)
-                        ->orLike('status', $keyword)
-                      ->groupEnd();
+                      ->select("($subQueryTeam) as tim_pelaksana");
+
+        if (!empty($keyword)) {
+            $query->groupStart()
+                ->like('nama_kegiatan', $keyword)
+                ->orLike('pelaksana', $keyword)
+                ->orLike('unit_kerja', $keyword)
+                ->orLike('status', $keyword)
+            ->groupEnd();
+        }
 
         if ($tahun) {
             $query->where('tahun', $tahun);
@@ -253,8 +256,6 @@ class ProgramKerjaModel extends Model
         if ($tahun) {
             $query->where('tahun', $tahun);
         }
-        // PKPT Utama only
-        $query->where('status !=', 'Penugasan Tambahan');
         
         $result = $query->first();
         return $result['anggaran'] ?? 0;
@@ -271,8 +272,6 @@ class ProgramKerjaModel extends Model
         if ($tahun) {
             $query->where('tahun', $tahun);
         }
-        // PKPT Utama only
-        $query->where('status !=', 'Penugasan Tambahan');
         
         $result = $query->first();
         return $result['realisasi_anggaran'] ?? 0;
@@ -289,8 +288,7 @@ class ProgramKerjaModel extends Model
         if ($tahun) {
             $query = $query->where('tahun', $tahun);
         }
-        // PKPT Utama only
-        return $query->where('status !=', 'Penugasan Tambahan')->countAllResults();
+        return $query->countAllResults();
     }
 
     /**

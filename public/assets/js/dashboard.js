@@ -12,7 +12,7 @@ let charts = {};
 document.addEventListener('DOMContentLoaded', function () {
     initializeCalendar();
     initializeCharts();
-    initializeCharts();
+    updateStatistics(currentYear);
 
     // Calendar navigation
     document.getElementById('prevMonth')?.addEventListener('click', () => {
@@ -484,9 +484,61 @@ function updateStatistics(year) {
                 if (statusPercentMain) statusPercentMain.textContent = Math.round(data.persentase_pelaksanaan) + '%';
                 if (statusCountSub) statusCountSub.textContent = formatNumber(data.total_program);
                 if (statusCountTerlaksana) statusCountTerlaksana.textContent = formatNumber(data.total_terlaksana || 0);
+
+                // Update Mini Budget Chart
+                renderBudgetMiniChart(data);
             }
         })
         .catch(error => console.error('Statistics error:', error));
+}
+
+/**
+ * Render Mini Doughnut for Budget Card
+ */
+function renderBudgetMiniChart(data) {
+    const ctx = document.getElementById('budgetDoughnutChart');
+    if (!ctx) return;
+
+    if (charts.budgetMini) charts.budgetMini.destroy();
+
+    const percent = Math.min(100, Math.round(data.persentase_realisasi));
+    const sisa = Math.max(0, 100 - percent);
+
+    charts.budgetMini = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Terelaisasi', 'Sisa'],
+            datasets: [{
+                data: [percent, sisa],
+                backgroundColor: ['#10b981', '#f1f5f9'],
+                borderWidth: 0,
+                hoverOffset: 0,
+                cutout: '80%',
+                borderRadius: percent >= 100 ? 0 : 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    enabled: true,
+                    callbacks: {
+                        label: (ctx) => ` ${ctx.label}: ${ctx.raw}%`
+                    }
+                }
+            },
+            animation: {
+                duration: 1500,
+                easing: 'easeOutQuart'
+            }
+        }
+    });
+
+    // Update center text (just in case)
+    const percentEl = document.getElementById('budgetMiniPercent');
+    if (percentEl) percentEl.textContent = percent + '%';
 }
 
 /**
@@ -526,16 +578,18 @@ function renderMonthlyStatusPolygon(data) {
         tooltip: {
             mode: 'index',
             intersect: false,
-            backgroundColor: 'rgba(255, 255, 255, 0.98)',
+            backgroundColor: '#ffffff',
             titleColor: '#1e293b',
+            bodyColor: '#475569',
             borderColor: '#e2e8f0',
             borderWidth: 1,
-            padding: 10,
+            padding: 12,
+            usePointStyle: true,
             callbacks: {
                 label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y || 0} kegiatan`,
                 afterBody: (items) => {
                     const idx = items[0].dataIndex;
-                    const tot = data.terlaksana[idx] + data.tidak_terlaksana[idx];
+                    const tot = (data.terlaksana[idx] || 0) + (data.tidak_terlaksana[idx] || 0);
                     return tot === 0 ? '\n(Tidak ada kegiatan)' : `\nTotal: ${tot} kegiatan`;
                 }
             }
@@ -545,25 +599,45 @@ function renderMonthlyStatusPolygon(data) {
     // Custom plugin for empty marker and total labels
     const chartEnhancements = {
         id: 'chartEnhancements',
-        afterDraw: (chart) => {
+        afterDatasetsDraw: (chart) => {
             const { ctx, data, scales: { x, y } } = chart;
             ctx.save();
             data.labels.forEach((_, i) => {
-                const terlaksana = data.datasets[0].data[i] || 0;
-                const tidak = data.datasets[1] ? (data.datasets[1].data[i] || 0) : 0;
+                const terlaksana = (data.datasets[0] && data.datasets[0].data[i]) || 0;
+                const tidak = (data.datasets[1] && data.datasets[1].data[i]) || 0;
                 const total = terlaksana + tidak;
                 const xPos = x.getPixelForTick(i);
 
-                // 1. Label Total di atas Batang (Hanya untuk Bar Chart)
+                // 1. Label untuk tiap segmen di dalam batang
+                if (chart.config.type === 'bar' && total > 0) {
+                    let cumulativeY = 0;
+                    chart.data.datasets.forEach((dataset) => {
+                        const val = dataset.data[i] || 0;
+                        if (val > 0) {
+                            cumulativeY += val;
+                            // Hitung koordinat Y tepat di tengah segmen (koordinat pixel berbanding terbalik dengan nilai Y)
+                            const segmentCenterY = y.getPixelForValue(cumulativeY - (val / 2));
+
+                            ctx.fillStyle = '#ffffff';
+                            ctx.font = 'bold 10px Arial';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(val, xPos, segmentCenterY);
+                        }
+                    });
+                }
+
+                // 2. Label Total di atas Batang (Hanya untuk Bar Chart)
                 if (chart.config.type === 'bar' && total > 0) {
                     const yPos = y.getPixelForValue(total);
                     ctx.fillStyle = '#1e293b';
                     ctx.font = 'bold 11px Arial';
                     ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
                     ctx.fillText(total, xPos, yPos - 8);
                 }
 
-                // 2. Marker untuk bulan kosong
+                // 3. Marker untuk bulan kosong
                 if (total === 0) {
                     ctx.fillStyle = '#cbd5e1';
                     ctx.beginPath();
