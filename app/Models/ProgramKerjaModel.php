@@ -40,7 +40,12 @@ class ProgramKerjaModel extends Model
         'realisasi_anggaran',
         'sasaran_strategis',
         'status',
-        'alasan_tidak_terlaksana'
+        'alasan_tidak_terlaksana',
+        'is_approved',
+        'approved_by',
+        'approved_at',
+        'catatan_auditor',
+        'created_by'
     ];
 
     // Dates
@@ -106,6 +111,31 @@ class ProgramKerjaModel extends Model
     protected $afterDelete    = [];
 
     /**
+     * Helper: Menerapkan filter berdasarkan user atau pembuat data.
+     */
+    private function applyUserFilter($query, $onlyForUser, $peran)
+    {
+        if ($onlyForUser) {
+            $query->groupStart();
+                // Selalu cek created_by
+                $query->where('program_kerja.created_by', $onlyForUser);
+                
+                // Tambahkan pengecekan sebagai Ketua Tim
+                $query->orWhere('program_kerja.ketua_tim', $onlyForUser);
+                
+                // Tambahkan pengecekan di tim pelaksana
+                $query->orWhereIn('program_kerja.id', function($builder) use ($onlyForUser) {
+                    $builder->select('program_kerja_id')
+                            ->from('program_kerja_pelaksana')
+                            ->where('nama_pelaksana', $onlyForUser);
+                    return $builder;
+                });
+            $query->groupEnd();
+        }
+        return $query;
+    }
+
+    /**
      * Ambil semua data program kerja dengan pagination
      * 
      * @param int $perPage Jumlah data per halaman
@@ -118,9 +148,10 @@ class ProgramKerjaModel extends Model
      * 
      * @param int $perPage Jumlah data per halaman (default 10)
      * @param int|null $tahun Filter berdasarkan tahun (opsional)
+     * @param string|null $onlyForUser Nama pelaksana (jika diisi, hanya tampilkan penugasan ybs)
      * @return array Data program kerja
      */
-    public function ambilSemuaData($perPage = 10, $tahun = null)
+    public function ambilSemuaData($perPage = 10, $tahun = null, $onlyForUser = null, $peran = null)
     {
         /**
          * Subquery untuk mendapatkan SEMUA dokumen terkait.
@@ -133,7 +164,7 @@ class ProgramKerjaModel extends Model
          *    sehingga struktur data tetap konsisten (3 bagian).
          */
         $subQuery = $this->db->table('program_kerja_dokumen')
-            ->select("GROUP_CONCAT(CONCAT(id, ':', COALESCE(nama_asli, nama_file), ':', COALESCE(tipe_dokumen, 'Dokumen')) SEPARATOR '|')")
+            ->select("GROUP_CONCAT(CONCAT(id, ':', COALESCE(nama_asli, nama_file), ':', COALESCE(tipe_dokumen, 'Dokumen'), ':', nama_file) SEPARATOR '|')")
             ->where('program_kerja_id = program_kerja.id')
             ->orderBy('created_at', 'DESC')
             ->getCompiledSelect();
@@ -148,10 +179,11 @@ class ProgramKerjaModel extends Model
                       ->select("($subQueryTeam) as tim_pelaksana")
                       ->orderBy('created_at', 'DESC');
         
-        // Filter berdasarkan tahun jika diminta
         if ($tahun) {
             $query->where('tahun', $tahun);
         }
+
+        $this->applyUserFilter($query, $onlyForUser, $peran);
         
         return $query->paginate($perPage);
     }
@@ -171,13 +203,15 @@ class ProgramKerjaModel extends Model
      * @param string $keyword Kata kunci pencarian
      * @param int $perPage Jumlah data per halaman
      * @param int|null $tahun Filter tahun
+     * @param string|null $onlyForUser Nama pelaksana
+     * @param string|null $peran Filter peran spesifik
      * @return array Data hasil pencarian
      */
-    public function cariProgramKerja($keyword, $perPage = 10, $tahun = null)
+    public function cariProgramKerja($keyword, $perPage = 10, $tahun = null, $onlyForUser = null, $peran = null)
     {
         // Subquery yang sama seperti di atas untuk pencarian
         $subQuery = $this->db->table('program_kerja_dokumen')
-            ->select("GROUP_CONCAT(CONCAT(id, ':', nama_file, ':', COALESCE(tipe_dokumen, 'Dokumen'), ':', COALESCE(nama_asli, nama_file)) SEPARATOR '|')")
+            ->select("GROUP_CONCAT(CONCAT(id, ':', COALESCE(nama_asli, nama_file), ':', COALESCE(tipe_dokumen, 'Dokumen'), ':', nama_file) SEPARATOR '|')")
             ->where('program_kerja_id = program_kerja.id')
             ->orderBy('created_at', 'DESC')
             ->getCompiledSelect();
@@ -203,6 +237,8 @@ class ProgramKerjaModel extends Model
         if ($tahun) {
             $query->where('tahun', $tahun);
         }
+
+        $this->applyUserFilter($query, $onlyForUser, $peran);
 
         return $query->orderBy('created_at', 'DESC')
                      ->paginate($perPage);
@@ -250,12 +286,11 @@ class ProgramKerjaModel extends Model
      * 
      * @return float
      */
-    public function hitungTotalAnggaran($tahun = null)
+    public function hitungTotalAnggaran($tahun = null, $onlyForUser = null, $peran = null)
     {
         $query = $this->selectSum('anggaran');
-        if ($tahun) {
-            $query->where('tahun', $tahun);
-        }
+        if ($tahun) $query->where('tahun', $tahun);
+        $this->applyUserFilter($query, $onlyForUser, $peran);
         
         $result = $query->first();
         return $result['anggaran'] ?? 0;
@@ -266,12 +301,12 @@ class ProgramKerjaModel extends Model
      * 
      * @return float
      */
-    public function hitungTotalRealisasi($tahun = null)
+    public function hitungTotalRealisasi($tahun = null, $onlyForUser = null, $peran = null)
     {
         $query = $this->selectSum('realisasi_anggaran');
-        if ($tahun) {
-            $query->where('tahun', $tahun);
-        }
+        if ($tahun) $query->where('tahun', $tahun);
+        $query->where('is_approved', 1);
+        $this->applyUserFilter($query, $onlyForUser, $peran);
         
         $result = $query->first();
         return $result['realisasi_anggaran'] ?? 0;
@@ -282,12 +317,11 @@ class ProgramKerjaModel extends Model
      * 
      * @return int
      */
-    public function hitungJumlahProgram($tahun = null)
+    public function hitungJumlahProgram($tahun = null, $onlyForUser = null, $peran = null)
     {
-        $query = $this;
-        if ($tahun) {
-            $query = $query->where('tahun', $tahun);
-        }
+        $query = $this->asArray();
+        if ($tahun) $query->where('tahun', $tahun);
+        $this->applyUserFilter($query, $onlyForUser, $peran);
         return $query->countAllResults();
     }
 
@@ -296,37 +330,41 @@ class ProgramKerjaModel extends Model
      * 
      * @return array
      */
-    public function ambilStatistik($tahun = null)
+    public function ambilStatistik($tahun = null, $onlyForUser = null, $peran = null)
     {
-        $totalAnggaran = $this->hitungTotalAnggaran($tahun);
-        $totalRealisasi = $this->hitungTotalRealisasi($tahun);
+        $totalAnggaran = $this->hitungTotalAnggaran($tahun, $onlyForUser, $peran);
+        $totalRealisasi = $this->hitungTotalRealisasi($tahun, $onlyForUser, $peran);
         $sisaAnggaran = $totalAnggaran - $totalRealisasi;
 
-        // Separate counting for additional tasks (not affecting KPI)
+        // Separate counting for additional tasks (for informative separation)
         $queryAdd = $this->where('status', 'Penugasan Tambahan');
         if ($tahun) $queryAdd->where('tahun', $tahun);
+        $this->applyUserFilter($queryAdd, $onlyForUser, $peran);
         $totalTambahan = $queryAdd->countAllResults();
 
         return [
-            'total_program'          => $this->hitungJumlahProgram($tahun), // Now PKPT Utama only
-            'total_tambahan'         => $totalTambahan, // New field for separation
+            'total_program'          => $this->hitungJumlahProgram($tahun, $onlyForUser, $peran),
+            'total_tambahan'         => $totalTambahan,
             'total_anggaran'         => $totalAnggaran,
             'total_realisasi'        => $totalRealisasi,
             'sisa_anggaran'          => $sisaAnggaran,
-            'persentase_realisasi'   => $this->hitungPersentaseRealisasi($tahun),
-            'persentase_capaian'     => $this->hitungPersentaseCapaian($tahun),
-            'persentase_pelaksanaan' => $this->hitungPersentasePelaksanaan($tahun),
-            'total_terlaksana'       => $this->hitungJumlahTerlaksana($tahun)
+            'persentase_realisasi'   => $this->hitungPersentaseRealisasi($tahun, $onlyForUser, $peran),
+            'persentase_capaian'     => $this->hitungPersentaseCapaian($tahun, $onlyForUser, $peran),
+            'persentase_pelaksanaan' => $this->hitungPersentasePelaksanaan($tahun, $onlyForUser, $peran),
+            'total_terlaksana'       => $this->hitungJumlahTerlaksana($tahun, $onlyForUser, $peran)
         ];
     }
 
     /**
-     * Hitung jumlah kegiatan terlaksana (PKPT Utama)
+     * Hitung jumlah kegiatan terlaksana (Global: Terlaksana + Penugasan Tambahan)
+     * Hanya yang sudah DISETUJUI oleh Auditor
      */
-    private function hitungJumlahTerlaksana($tahun = null)
+    private function hitungJumlahTerlaksana($tahun = null, $onlyForUser = null, $peran = null)
     {
-        $query = $this->where('status', 'Terlaksana');
+        $query = $this->whereIn('status', ['Terlaksana', 'Penugasan Tambahan'])
+                      ->where('is_approved', 1);
         if ($tahun) $query->where('tahun', $tahun);
+        $this->applyUserFilter($query, $onlyForUser, $peran);
         return $query->countAllResults();
     }
 
@@ -335,10 +373,10 @@ class ProgramKerjaModel extends Model
      * 
      * @return float
      */
-    private function hitungPersentaseRealisasi($tahun = null)
+    private function hitungPersentaseRealisasi($tahun = null, $onlyForUser = null, $peran = null)
     {
-        $totalAnggaran = $this->hitungTotalAnggaran($tahun);
-        $totalRealisasi = $this->hitungTotalRealisasi($tahun);
+        $totalAnggaran = $this->hitungTotalAnggaran($tahun, $onlyForUser, $peran);
+        $totalRealisasi = $this->hitungTotalRealisasi($tahun, $onlyForUser, $peran);
         
         if ($totalAnggaran > 0) {
             return round(($totalRealisasi / $totalAnggaran) * 100, 0);
@@ -349,17 +387,20 @@ class ProgramKerjaModel extends Model
 
     /**
      * Hitung persentase capaian PKPT inti (Terlaksana vs Tidak Terlaksana)
+     * Hanya menghitung Terlaksana yang sudah DISETUJUI
      * 
      * @return float
      */
-    private function hitungPersentaseCapaian($tahun = null)
+    private function hitungPersentaseCapaian($tahun = null, $onlyForUser = null, $peran = null)
     {
-        $queryTerlaksana = $this->where('status', 'Terlaksana');
+        $queryTerlaksana = $this->where('status', 'Terlaksana')->where('is_approved', 1);
         if ($tahun) $queryTerlaksana->where('tahun', $tahun);
+        $this->applyUserFilter($queryTerlaksana, $onlyForUser, $peran);
         $terlaksana = $queryTerlaksana->countAllResults();
 
         $queryTidakTerlaksana = $this->where('status', 'Tidak Terlaksana');
         if ($tahun) $queryTidakTerlaksana->where('tahun', $tahun);
+        $this->applyUserFilter($queryTidakTerlaksana, $onlyForUser, $peran);
         $tidakTerlaksana = $queryTidakTerlaksana->countAllResults();
 
         $totalCore = $terlaksana + $tidakTerlaksana;
@@ -373,17 +414,14 @@ class ProgramKerjaModel extends Model
 
     /**
      * Hitung persentase realisasi pelaksanaan kegiatan secara total
-     * (Semua Terlaksana / Semua Kegiatan)
+     * (Semua Terlaksana + Tambahan / Semua Kegiatan)
      * 
      * @return float
      */
-    private function hitungPersentasePelaksanaan($tahun = null)
+    private function hitungPersentasePelaksanaan($tahun = null, $onlyForUser = null, $peran = null)
     {
-        $totalProgram = $this->hitungJumlahProgram($tahun);
-        
-        $queryTerlaksana = $this->where('status', 'Terlaksana');
-        if ($tahun) $queryTerlaksana->where('tahun', $tahun);
-        $terlaksana = $queryTerlaksana->countAllResults();
+        $totalProgram = $this->hitungJumlahProgram($tahun, $onlyForUser, $peran);
+        $terlaksana = $this->hitungJumlahTerlaksana($tahun, $onlyForUser, $peran);
         
         if ($totalProgram > 0) {
             return round(($terlaksana / $totalProgram) * 100, 0);
@@ -417,12 +455,12 @@ class ProgramKerjaModel extends Model
      * 
      * @return array
      */
-    public function getStatusDistribution($tahun = null)
+    public function getStatusDistribution($tahun = null, $onlyForUser = null, $peran = null)
     {
         $query = $this->select('status, COUNT(*) as count');
-        if ($tahun) {
-            $query->where('tahun', $tahun);
-        }
+        if ($tahun) $query->where('tahun', $tahun);
+        $this->applyUserFilter($query, $onlyForUser, $peran);
+        
         $result = $query->groupBy('status')->findAll();
         
         $groups = [
@@ -456,7 +494,7 @@ class ProgramKerjaModel extends Model
      * @param int $year Tahun
      * @return array
      */
-    public function getMonthlyStatusDistribution($year)
+    public function getMonthlyStatusDistribution($year, $onlyForUser = null, $peran = null)
     {
         $months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
         $terlaksana = [];
@@ -466,9 +504,10 @@ class ProgramKerjaModel extends Model
             $startDate = sprintf('%04d-%02d-01', $year, $i);
             $endDate = date('Y-m-t', strtotime($startDate));
             
-            // Count Terlaksana
+            // Count Terlaksana (Hanya yang Approved)
             $countTerlaksana = $this->where('tahun', $year)
                                     ->where('status', 'Terlaksana')
+                                    ->where('is_approved', 1)
                                     ->where('tanggal_selesai >=', $startDate)
                                     ->where('tanggal_selesai <=', $endDate)
                                     ->countAllResults();
@@ -496,7 +535,7 @@ class ProgramKerjaModel extends Model
      * @param int $year Tahun
      * @return array
      */
-    public function getMonthlyTrend($year)
+    public function getMonthlyTrend($year, $onlyForUser = null, $peran = null)
     {
         $months = [];
         $anggaran = [];
@@ -509,17 +548,19 @@ class ProgramKerjaModel extends Model
             $endDate = date('Y-m-t', strtotime($startDate));
             
             // Total anggaran bulan ini
-            $budgetResult = $this->selectSum('anggaran')
-                                 ->where('tanggal_mulai >=', $startDate)
-                                 ->where('tanggal_mulai <=', $endDate)
-                                 ->first();
+            $bQuery = $this->selectSum('anggaran')
+                           ->where('tanggal_mulai >=', $startDate)
+                           ->where('tanggal_mulai <=', $endDate);
+            $this->applyUserFilter($bQuery, $onlyForUser, $peran);
+            $budgetResult = $bQuery->first();
             $anggaran[] = $budgetResult['anggaran'] ?? 0;
             
             // Total realisasi bulan ini
-            $realizationResult = $this->selectSum('realisasi_anggaran')
-                                      ->where('tanggal_mulai >=', $startDate)
-                                      ->where('tanggal_mulai <=', $endDate)
-                                      ->first();
+            $rQuery = $this->selectSum('realisasi_anggaran')
+                           ->where('tanggal_mulai >=', $startDate)
+                           ->where('tanggal_mulai <=', $endDate);
+            $this->applyUserFilter($rQuery, $onlyForUser, $peran);
+            $realizationResult = $rQuery->first();
             $realisasi[] = $realizationResult['realisasi_anggaran'] ?? 0;
         }
         
@@ -536,7 +577,7 @@ class ProgramKerjaModel extends Model
      * 
      * @return array
      */
-    public function getBudgetComparison($tahun = null)
+    public function getBudgetComparison($tahun = null, $onlyForUser = null, $peran = null)
     {
         $statuses = ['Terlaksana', 'Tidak Terlaksana', 'Penugasan Tambahan'];
         $anggaran = [];
@@ -545,11 +586,13 @@ class ProgramKerjaModel extends Model
         foreach ($statuses as $status) {
             $budgetQuery = $this->selectSum('anggaran')->where('status', $status);
             if ($tahun) $budgetQuery->where('tahun', $tahun);
+            $this->applyUserFilter($budgetQuery, $onlyForUser, $peran);
             $budgetResult = $budgetQuery->first();
             $anggaran[] = $budgetResult['anggaran'] ?? 0;
             
             $realizationQuery = $this->selectSum('realisasi_anggaran')->where('status', $status);
             if ($tahun) $realizationQuery->where('tahun', $tahun);
+            $this->applyUserFilter($realizationQuery, $onlyForUser, $peran);
             $realizationResult = $realizationQuery->first();
             $realisasi[] = $realizationResult['realisasi_anggaran'] ?? 0;
         }

@@ -10,20 +10,6 @@
     </div>
 </div>
 
-<!-- Alert Messages -->
-<?php if (session()->getFlashdata('sukses')): ?>
-    <div class="alert alert-success">
-        <span class="alert-icon">✓</span>
-        <span class="alert-text"><?= session()->getFlashdata('sukses') ?></span>
-    </div>
-<?php endif; ?>
-
-<?php if (session()->getFlashdata('gagal')): ?>
-    <div class="alert alert-error">
-        <span class="alert-icon">✕</span>
-        <span class="alert-text"><?= session()->getFlashdata('gagal') ?></span>
-    </div>
-<?php endif; ?>
 
 <!-- Search & Actions Toolbar -->
 <div class="toolbar-container">
@@ -56,12 +42,14 @@
     </form>
     
     <div class="toolbar-actions">
+        <?php if (in_array(session()->get('role'), ['admin', 'user'])): ?>
         <a href="<?= base_url('program-kerja/tambah') ?>" class="btn btn-primary">
             <span class="btn-icon">
                 <i class="fas fa-plus"></i>
             </span>
             Tambah Program
         </a>
+        <?php endif; ?>
         <a href="<?= base_url('program-kerja/export-excel') . '?' . http_build_query(request()->getGet()) ?>" class="btn btn-success">
             <span class="btn-icon">
                 <i class="fas fa-file-excel"></i>
@@ -87,6 +75,7 @@
                     <th class="th-realisasi-anggaran">Realisasi Anggaran</th>
                     <th class="th-sasaran">Sasaran Strategis</th>
                     <th class="th-status">Status</th>
+                    <th class="th-approval">Approval</th>
                 </tr>
             </thead>
             <tbody>
@@ -308,18 +297,48 @@
                                     <span class="text-muted">-</span>
                                 <?php endif; ?>
                             </td>
+                            <td class="td-approval">
+                                <div class="cell-content text-center">
+                                    <?php if ($pk['is_approved']): ?>
+                                        <span class="badge badge-terlaksana" title="Disetujui oleh <?= esc($pk['approved_by']) ?> pada <?= date('d/m/Y', strtotime($pk['approved_at'])) ?><?= !empty($pk['catatan_auditor']) ? "\nCatatan: " . esc($pk['catatan_auditor']) : '' ?>">
+                                            <i class="fas fa-check-circle"></i> Disetujui
+                                            <?php if (!empty($pk['catatan_auditor'])): ?>
+                                                <i class="fas fa-comment-dots ml-1" style="font-size: 0.85em;"></i>
+                                            <?php endif; ?>
+                                        </span>
+                                    <?php else: ?>
+                                        <?php if (session()->get('role') === 'auditor' && $pk['status'] === 'Terlaksana'): ?>
+                                            <button type="button"
+                                               class="btn btn-primary btn-approve-inline" 
+                                               style="padding: 2px 8px; font-size: 0.75rem; position: relative;"
+                                               onclick="event.stopPropagation(); setujuiProgram(<?= $pk['id'] ?>, this)">
+                                                <i class="fas fa-check mr-1"></i> Approve
+                                                <?php if (!empty($pk['catatan_auditor'])): ?>
+                                                    <span style="position: absolute; top: -4px; right: -4px; width: 8px; height: 8px; background: #ef4444; border: 1px solid white; border-radius: 50%;" title="Memiliki catatan/review"></span>
+                                                <?php endif; ?>
+                                            </button>
+                                        <?php else: ?>
+                                            <span class="badge badge-dibatalkan" style="background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb;">
+                                                <i class="fas fa-clock mr-1"></i> Pending
+                                            </span>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php else: ?>
                     <tr>
-                        <td colspan="10" class="text-center">
+                        <td colspan="11" class="text-center">
                             <div class="empty-state">
                                 <p class="empty-icon">📋</p>
                                 <p class="empty-text">Belum ada data program kerja</p>
+                                <?php if (session()->get('role') === 'admin'): ?>
                                 <a href="<?= base_url('program-kerja/tambah') ?>" class="btn btn-primary">
                                     <span class="btn-icon">+</span>
                                     Tambah Program Kerja
                                 </a>
+                                <?php endif; ?>
                             </div>
                         </td>
                     </tr>
@@ -342,6 +361,53 @@
 <?php endif; ?>
 
 <?= $this->include('program_kerja/partials/modal_preview') ?>
+
+<script>
+async function setujuiProgram(id, btn) {
+    if (!confirm('Setujui program kerja ini?')) return;
+    
+    const originalContent = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Processing...';
+    
+    try {
+        const response = await fetch('<?= base_url('program-kerja/setujui') ?>/' + id, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Update the cell content to "Disetujui" badge
+            const container = btn.closest('.cell-content');
+            const catatan = result.catatan || '';
+            const catatanText = catatan ? '\nCatatan: ' + catatan : '';
+            
+            container.innerHTML = `
+                <span class="badge badge-terlaksana" title="Disetujui oleh ${result.approved_by} pada ${result.approved_at}${catatanText}">
+                    <i class="fas fa-check-circle"></i> Disetujui
+                    ${catatan ? '<i class="fas fa-comment-dots ml-1" style="font-size: 0.85em;"></i>' : ''}
+                </span>
+            `;
+            
+            // Optional: Show a small toast notification instead of popup
+            // console.log(result.message);
+        } else {
+            alert(result.message || 'Gagal menyetujui program kerja');
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan koneksi');
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
+    }
+}
+</script>
 
 <?= $this->endSection() ?>
 

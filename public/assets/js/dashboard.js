@@ -458,13 +458,15 @@ function updateStatistics(year) {
                 const totalAnggaranEl = document.getElementById('statTotalAnggaran');
                 const totalRealisasiEl = document.getElementById('statTotalRealisasi');
                 const persentaseRealisasiEl = document.getElementById('statPersentaseRealisasi');
+                const terlaksanaCountEl = document.getElementById('statTerlaksanaCount');
+                const persentaseKinerjaMainEl = document.getElementById('statPersentaseKinerjaMain');
 
                 if (totalProgramEl) totalProgramEl.textContent = formatNumber(data.total_program);
                 if (totalAnggaranEl) totalAnggaranEl.textContent = formatNumber(data.total_anggaran);
                 if (totalRealisasiEl) totalRealisasiEl.textContent = formatNumber(data.total_realisasi);
                 if (persentaseRealisasiEl) persentaseRealisasiEl.innerHTML = Math.round(data.persentase_realisasi) + '<span class="unit-percent">%</span>';
-
-                // Update "Anggaran vs Realisasi" section
+                if (terlaksanaCountEl) terlaksanaCountEl.textContent = formatNumber(data.total_terlaksana || 0);
+                if (persentaseKinerjaMainEl) persentaseKinerjaMainEl.textContent = Math.round(data.persentase_pelaksanaan);
 
                 // Update "Anggaran vs Realisasi" section
                 const budgetValRealisasi = document.getElementById('budgetValRealisasi');
@@ -476,7 +478,7 @@ function updateStatistics(year) {
                 const statusCountSub = document.getElementById('statusCountSub');
                 const statusCountTerlaksana = document.getElementById('statusCountTerlaksana');
 
-                if (budgetValRealisasi) budgetValRealisasi.textContent = formatNumber(Math.round(data.total_realisasi / 1000)) + '.000';
+                if (budgetValRealisasi) budgetValRealisasi.textContent = formatNumber(data.total_realisasi); // Keep consistent with model
                 if (budgetPercentRealisasi) budgetPercentRealisasi.textContent = Math.round(data.persentase_realisasi) + '% REALISASI';
                 if (budgetProgressBar) budgetProgressBar.style.width = data.persentase_realisasi + '%';
                 if (budgetScaleTotal) budgetScaleTotal.textContent = 'Anggaran: Rp ' + formatNumber(data.total_anggaran);

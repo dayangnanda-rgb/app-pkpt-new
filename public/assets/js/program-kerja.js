@@ -266,8 +266,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // notificationBell is already declared elsewhere in the file
 
     if (announcementPopover && closeAnnouncement) {
-        // Updated session key for testing
-        const isShown = sessionStorage.getItem('pkpt_announcement_v4_shown');
+        // Updated session key to v5 to force reappear for user request
+        const isShown = sessionStorage.getItem('pkpt_announcement_v5_shown');
 
         if (!isShown) {
             setTimeout(() => {
@@ -278,7 +278,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         closeAnnouncement.addEventListener('click', function () {
             announcementPopover.classList.remove('show');
-            sessionStorage.setItem('pkpt_announcement_v4_shown', 'true');
+            sessionStorage.setItem('pkpt_announcement_v5_shown', 'true');
             if (announcementPulseDot) announcementPulseDot.classList.remove('show');
         });
 

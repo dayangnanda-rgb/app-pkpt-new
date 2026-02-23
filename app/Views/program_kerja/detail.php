@@ -1,6 +1,61 @@
 <?= $this->extend('layouts/utama') ?>
 
 <?= $this->section('content') ?>
+<?php 
+$role = session()->get('role');
+$isAdmin = ($role === 'admin');
+$userName = session()->get('user.pegawai_detail.nama') ?? session()->get('user.name');
+
+$isAssigned = false;
+if ($isAdmin) {
+    $isAssigned = true;
+} else {
+    // Role User/Auditor: Pembuat (creator), Ketua Tim, atau listed in team
+    if (($program_kerja['created_by'] ?? '') === $userName || ($program_kerja['ketua_tim'] ?? '') === $userName) {
+        $isAssigned = true;
+    } else {
+        foreach ($tim_pelaksana as $tp) {
+            if ($tp['nama_pelaksana'] === $userName) {
+                $isAssigned = true;
+                break;
+            }
+        }
+    }
+}
+
+// Cek Penguncian Data (LOCKED jika sudah Approved Auditor)
+$isLocked = false;
+if (!$isAdmin && ($program_kerja['is_approved'] ?? 0) == 1) {
+    $isLocked = true;
+}
+
+$canModify = ($isAdmin || ($isAssigned && !$isLocked));
+
+// Akses upload dokumen: admin selalu bisa; user/pelaksana yang terlibat bisa
+// Auditor yang tidak terlibat sebagai pelaksana tidak bisa upload
+$canUpload = false;
+if ($role === 'admin') {
+    // Admin selalu bisa upload
+    $canUpload = true;
+} elseif ($role === 'user') {
+    // User bisa upload jika terlibat & data belum dikunci
+    if (!$isLocked) {
+        if (!empty($program_kerja['created_by']) && $program_kerja['created_by'] === $userName) {
+            $canUpload = true;
+        } elseif (!empty($program_kerja['ketua_tim']) && $program_kerja['ketua_tim'] === $userName) {
+            $canUpload = true;
+        } else {
+            foreach ($tim_pelaksana as $tp) {
+                if ($tp['nama_pelaksana'] === $userName) {
+                    $canUpload = true;
+                    break;
+                }
+            }
+        }
+    }
+}
+// Catatan: role 'auditor' tidak mendapat akses upload, hanya bisa melihat daftar dokumen
+?>
 
 <!-- Header Halaman -->
 <div class="page-header">
@@ -9,13 +64,18 @@
         <p class="page-subtitle">Informasi lengkap program kerja pengawasan</p>
     </div>
     <div class="page-header-actions">
+        <?php if ($canModify): ?>
         <a href="<?= base_url('program-kerja/edit/' . $program_kerja['id']) ?>" class="btn btn-primary">
             Edit
         </a>
+        <?php endif; ?>
+        
+        <?php if ($canModify): ?>
         <button onclick="konfirmasiHapus(<?= $program_kerja['id'] ?>, '<?= esc($program_kerja['nama_kegiatan']) ?>')" 
                 class="btn btn-danger">
             Hapus
         </button>
+        <?php endif; ?>
         <a href="<?= base_url('program-kerja') ?>" class="btn btn-secondary">
             Kembali
         </a>
@@ -111,8 +171,8 @@
                     </div>
 
                     <div class="detail-item">
-                        <label class="detail-label">Status</label>
-                        <div class="detail-value">
+                        <label class="detail-label">Status Pelaksanaan</label>
+                        <div class="detail-value mb-3">
                             <?php if (!empty($program_kerja['status'])): ?>
                                 <span class="badge badge-<?= strtolower(str_replace(' ', '-', $program_kerja['status'])) ?>">
                                     <?= esc($program_kerja['status']) ?>
@@ -126,6 +186,65 @@
                                 <?php endif; ?>
                             <?php else: ?>
                                 <span class="text-muted">-</span>
+                            <?php endif; ?>
+                        </div>
+
+                        <label class="detail-label">Status Persetujuan (Auditor)</label>
+                        <div class="detail-value mb-4">
+                            <?php if ($program_kerja['is_approved']): ?>
+                                <span class="badge badge-terlaksana">
+                                    <i class="fas fa-check-circle mr-1"></i> Disetujui
+                                </span>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    Oleh: <?= esc($program_kerja['approved_by'] ?? 'Auditor') ?><br>
+                                    Pd: <?= date('d/m/Y H:i', strtotime($program_kerja['approved_at'])) ?>
+                                </div>
+                                <?php if (session()->get('role') === 'auditor'): ?>
+                                    <a href="<?= base_url('program-kerja/batalSetujui/'.$program_kerja['id']) ?>" class="btn btn-sm btn-outline-danger mt-2" onclick="return confirm('Batalkan persetujuan ini?')">
+                                        <i class="fas fa-times mr-1"></i> Batalkan
+                                    </a>
+                                <?php endif; ?>
+                            <?php else: ?>
+                                <span class="badge badge-dibatalkan">
+                                    <i class="fas fa-clock mr-1"></i> Belum Disetujui
+                                </span>
+                                <?php if (session()->get('role') === 'auditor' && $program_kerja['status'] !== 'Terlaksana'): ?>
+                                    <div class="text-xs text-info mt-2">
+                                        <i class="fas fa-info-circle mr-1"></i> Menunggu status 'Terlaksana' untuk disetujui.
+                                    </div>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                        </div>
+
+                        <!-- Review & Validasi Auditor -->
+                        <label class="detail-label">Review & Validasi Auditor</label>
+                        <div class="detail-value">
+                            <?php if ($program_kerja['is_approved']): ?>
+                                <div class="p-3 bg-blue-50 border-l-4 border-blue-500 rounded text-sm text-blue-800">
+                                    <strong>Catatan Review:</strong><br>
+                                    <?= nl2br(esc($program_kerja['catatan_auditor'] ?: 'Tidak ada catatan.')) ?>
+                                </div>
+                            <?php elseif (session()->get('role') === 'auditor'): ?>
+                                <div id="approval-container">
+                                    <form id="form-approval-auditor" action="<?= base_url('program-kerja/setujui/'.$program_kerja['id']) ?>" method="post">
+                                        <?= csrf_field() ?>
+                                        <textarea name="catatan_auditor" class="form-textarea text-sm w-full" rows="3" placeholder="Tambahkan catatan validasi atau review di sini..."><?= esc($program_kerja['catatan_auditor'] ?? '') ?></textarea>
+                                        <?php if ($program_kerja['status'] === 'Terlaksana'): ?>
+                                            <button type="submit" class="btn btn-primary btn-sm mt-2 w-full" style="position: relative;">
+                                                <i class="fas fa-check-double mr-1"></i> Simpan & Setujui
+                                                <?php if (!empty($program_kerja['catatan_auditor'])): ?>
+                                                    <span style="position: absolute; top: -5px; right: -5px; width: 10px; height: 10px; background: #ef4444; border: 2px solid white; border-radius: 50%; display: block;" title="Memiliki catatan/review"></span>
+                                                <?php endif; ?>
+                                            </button>
+                                        <?php else: ?>
+                                            <div class="text-xs text-gray-500 mt-2">
+                                                <em>Catatan dapat disimpan saat menyetujui program (setelah status 'Terlaksana').</em>
+                                            </div>
+                                        <?php endif; ?>
+                                    </form>
+                                </div>
+                            <?php else: ?>
+                                <div class="text-muted italic text-sm">Belum ada review dari auditor.</div>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -203,9 +322,11 @@
                         <div class="text-muted text-sm mb-3">Memuat dokumen...</div>
                     </div>
                     
+                    <?php if ($canUpload): ?>
                     <button type="button" class="btn btn-primary mt-3" onclick="bukaModalDokumen()">
-                        Kelola Dokumen
+                        <i class="fas fa-folder-open mr-1"></i> Kelola Dokumen
                     </button>
+                    <?php endif; ?>
                  </div>
                     
                     <!-- Legacy support (fallback) -->
@@ -245,7 +366,7 @@
 </div>
 
 <!-- Document Management Modal -->
-<?= $this->include('program_kerja/partials/modal_dokumen') ?>
+<?= $this->include('program_kerja/partials/modal_dokumen', ['canUpload' => $canUpload]) ?>
 <?= $this->include('program_kerja/partials/modal_preview') ?>
 
 <?= $this->endSection() ?>
@@ -261,14 +382,12 @@ function konfirmasiHapus(id, namaKegiatan) {
         form.method = 'POST';
         form.action = '<?= base_url('program-kerja/hapus/') ?>' + id;
         
-        const csrfToken = document.querySelector('meta[name="csrf-token"]');
-        if (csrfToken) {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'csrf_token';
-            input.value = csrfToken.content;
-            form.appendChild(input);
-        }
+        // CSRF Protection
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '<?= csrf_token() ?>';
+        csrfInput.value = '<?= csrf_hash() ?>';
+        form.appendChild(csrfInput);
         
         document.body.appendChild(form);
         form.submit();
@@ -348,9 +467,9 @@ function renderDocList(docs) {
     const container = document.getElementById('dm-doc-list');
     if (docs.length === 0) {
         container.innerHTML = `
-            <div class="flex flex-col items-center justify-center py-6 text-gray-400 border-2 border-dashed rounded-lg">
-                <span class="text-4xl mb-2">📂</span>
-                <span class="text-sm">Belum ada dokumen yang diunggah</span>
+            <div style="display: flex; align-items: center; gap: 8px; color: #475569; font-size: 0.95rem;">
+                <span style="font-size: 1.2rem;">📂</span>
+                <span>Belum ada dokumen yang akan diupload</span>
             </div>
         `;
         return;
@@ -359,14 +478,15 @@ function renderDocList(docs) {
     let html = '<div class="space-y-2">';
     docs.forEach(doc => {
         const sizeKB = doc.size ? (doc.size / 1024).toFixed(1) + ' KB' : '';
-        const fileName = doc.display_name || doc.nama_file;
+        const fileName = (doc.nama_asli && doc.nama_asli.trim() !== '') ? doc.nama_asli : (doc.display_name || doc.nama_file);
 
         html += `
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px;">
                 <div style="display: flex; align-items: center; gap: 12px; overflow: hidden; flex: 1;">
                     <span style="font-size: 1.5rem; flex-shrink: 0; color: #374151;">${getFileIcon(fileName)}</span>
                     <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
-                        <div style="font-size: 0.9rem; font-weight: 600; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${fileName}">${fileName}</div>
+                         <div style="font-size: 0.9rem; font-weight: 600; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;" 
+                              onclick="bukaPreview(${doc.id}, '${fileName}')" title="Klik untuk preview: ${fileName}">${fileName}</div>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span style="background: #e0f2fe; padding: 2px 8px; border-radius: 4px; color: #0284c7; font-size: 0.75rem; font-weight: 500;">${doc.tipe_dokumen || 'Dokumen'}</span>
                             <span style="font-size: 0.75rem; color: #9ca3af;">${sizeKB}</span>
@@ -374,9 +494,11 @@ function renderDocList(docs) {
                     </div>
                 </div>
                 <!-- Only Trash Icon -->
+                <?php if ($canUpload): ?>
                 <button onclick="hapusDokumen(${doc.id})" type="button" style="color: #ef4444; padding: 8px; border-radius: 4px; border: none; background: transparent; cursor: pointer; transition: color 0.2s;" title="Hapus">
                     <i class="fas fa-trash-alt"></i>
                 </button>
+                <?php endif; ?>
             </div>
         `;
     });
@@ -406,7 +528,7 @@ function updatePreview(docs) {
     docs.forEach((doc, index) => {
         // Use shared getFileIcon function
         // Also prefer display_name if available
-        const fileName = doc.display_name || doc.nama_file;
+        const fileName = (doc.nama_asli && doc.nama_asli.trim() !== '') ? doc.nama_asli : (doc.display_name || doc.nama_file);
         const iconHtml = window.getFileIcon ? getFileIcon(fileName) : '<i class="fas fa-file"></i>';
 
         // Tambahkan garis pembatas kecuali untuk item terakhir
@@ -423,7 +545,7 @@ function updatePreview(docs) {
                     </div>
                 </div>
                 <button type="button" 
-                   onclick="bukaPreview(${doc.id}, '${fileName}')"
+                   onclick="bukaPreview(${doc.id}, '${fileName.replace(/'/g, "\\'")}')"
                    class="btn btn-sm btn-outline-secondary" 
                    style="margin-left: 12px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; border: 1px solid #d1d5db;">
                     <span>Lihat</span>
@@ -447,44 +569,126 @@ async function uploadDokumen() {
     const fileInput = document.getElementById('dm-file');
     const tipeInput = document.getElementById('dm-tipe');
     const btn = document.getElementById('dm-btn-upload');
+    const progressContainer = document.getElementById('dm-upload-progress');
+    const progressBar = progressContainer ? progressContainer.querySelector('.progress-fill-upload') : null;
+    const progressText = progressContainer ? progressContainer.querySelector('.progress-text-upload') : null;
 
-    if (!fileInput.files[0]) {
+    if (!fileInput.files.length) {
         alert('Pilih file terlebih dahulu');
         return;
     }
 
-    const formData = new FormData();
-    formData.append('file', fileInput.files[0]);
-    formData.append('tipe_dokumen', tipeInput.value);
-    
-    // Add CSRF
-    const csrfToken = document.querySelector('meta[name="csrf-token"]');
-    if (csrfToken) formData.append('csrf_token', csrfToken.content);
+    const files = Array.from(fileInput.files);
+    const tipe = tipeInput.value;
 
     btn.disabled = true;
-    btn.innerHTML = 'Mengupload...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Mengupload...';
 
-    try {
-        const response = await fetch(`<?= base_url('program-kerja/upload-dokumen/') ?>${PROGRAM_ID}`, {
-            method: 'POST',
-            body: formData
-        });
-        const result = await response.json();
-
-        if (result.sukses) {
-            // Reset form
-            fileInput.value = '';
-            tipeInput.value = 'Surat Tugas';
-            loadDokumen(); // Reload list
-        } else {
-            alert(result.pesan);
-        }
-    } catch (e) {
-        alert('Gagal mengupload dokumen');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = 'Upload';
+    // Show progress
+    if (progressContainer) {
+        progressContainer.style.display = 'block';
     }
+
+    let successCount = 0;
+    let failCount = 0;
+    const csrfToken = document.querySelector('meta[name="csrf-token"]');
+
+    for (let i = 0; i < files.length; i++) {
+        // Update progress
+        if (progressBar) {
+            const pct = ((i + 1) / files.length * 100).toFixed(0);
+            progressBar.style.width = pct + '%';
+        }
+        if (progressText) {
+            progressText.textContent = `Mengupload file ${i + 1} dari ${files.length}...`;
+        }
+
+        const formData = new FormData();
+        formData.append('file', files[i]);
+        formData.append('tipe_dokumen', tipe);
+        
+        // Append CSRF Token
+        formData.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+
+        try {
+            const response = await fetch(`<?= base_url('program-kerja/upload-dokumen/') ?>${PROGRAM_ID}`, {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+
+            if (result.sukses) {
+                successCount++;
+            } else {
+                failCount++;
+                console.error(`Upload gagal untuk ${files[i].name}: ${result.pesan}`);
+            }
+        } catch (e) {
+            failCount++;
+            console.error(`Upload error untuk ${files[i].name}:`, e);
+        }
+    }
+
+    // Reset form
+    fileInput.value = '';
+    tipeInput.value = 'Surat Tugas';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-cloud-upload-alt mr-1"></i> Upload';
+
+    // Hide progress
+    if (progressContainer) {
+        progressContainer.style.display = 'none';
+        if (progressBar) progressBar.style.width = '0%';
+    }
+
+    // Update file list display in modal
+    updateSelectedFilesDisplay();
+
+    if (failCount > 0 && successCount > 0) {
+        alert(`${successCount} file berhasil diupload, ${failCount} file gagal.`);
+    } else if (failCount > 0 && successCount === 0) {
+        alert('Semua file gagal diupload.');
+    }
+
+    loadDokumen(); // Reload list
+}
+
+// Tampilkan daftar file yang dipilih di modal
+function updateSelectedFilesDisplay() {
+    const fileInput = document.getElementById('dm-file');
+    const display = document.getElementById('dm-selected-files');
+    if (!display) return;
+
+    if (!fileInput || !fileInput.files.length) {
+        display.innerHTML = `
+            <div style="text-align: center; padding: 30px 20px; color: #9ca3af;">
+                <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; margin-bottom: 10px; display: block; color: #d1d5db;"></i>
+                <span style="font-size: 0.9rem;">Belum ada file yang dipilih</span>
+                <br><small style="color: #b0b8c4;">Klik "Pilih File" untuk memilih dokumen</small>
+            </div>
+        `;
+        return;
+    }
+
+    const files = Array.from(fileInput.files);
+    let html = `<div style="font-size: 0.8rem; color: #6b7280; margin-bottom: 8px; font-weight: 600;">${files.length} file dipilih:</div>`;
+    html += '<div style="display: flex; flex-direction: column; gap: 6px;">';
+    files.forEach((file, i) => {
+        const sizeKB = (file.size / 1024).toFixed(1);
+        const ext = file.name.split('.').pop().toLowerCase();
+        const icon = getFileIcon(file.name);
+        html += `
+            <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 0.85rem;">
+                <span style="font-size: 1.1rem; flex-shrink: 0;">${icon}</span>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-weight: 500; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${file.name}">${file.name}</div>
+                    <div style="font-size: 0.75rem; color: #9ca3af;">${sizeKB} KB • ${ext.toUpperCase()}</div>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    display.innerHTML = html;
 }
 
 async function hapusDokumen(id) {
@@ -514,6 +718,63 @@ async function hapusDokumen(id) {
 document.addEventListener('DOMContentLoaded', () => {
     loadDokumen();
     window.startUploadDokumen = uploadDokumen;
+
+    // Update file list display when files are selected
+    const fileInput = document.getElementById('dm-file');
+    if (fileInput) {
+        fileInput.addEventListener('change', updateSelectedFilesDisplay);
+    }
+
+    // AJAX Approval Handler for Detail Page
+    const formApproval = document.getElementById('form-approval-auditor');
+    if (formApproval) {
+        formApproval.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!confirm('Pastikan data sudah valid. Setujui program kerja ini?')) return;
+
+            const btn = formApproval.querySelector('button[type="submit"]');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Menyimpan...';
+
+            try {
+                const formData = new FormData(formApproval);
+                const response = await fetch(formApproval.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Update the entire view dynamically if needed, or just status area
+                    location.reload(); // Still reloading for detail because it's safer for multiple state updates
+                    // However, we can try to do it without reload if UX is better:
+                    /*
+                    document.getElementById('approval-container').innerHTML = `
+                        <div class="p-3 bg-blue-50 border-l-4 border-blue-500 rounded text-sm text-blue-800">
+                            <strong>Catatan Review:</strong><br>
+                            ${formData.get('catatan_auditor') || 'Tidak ada catatan.'}
+                        </div>
+                    `;
+                    // Need to update the status badge as well
+                    */
+                } else {
+                    alert(result.message);
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Terjadi kesalahan saat memproses persetujuan');
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        });
+    }
 });
 </script>
 <?= $this->endSection() ?>

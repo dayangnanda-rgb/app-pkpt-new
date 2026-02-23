@@ -1,6 +1,28 @@
 <?= $this->extend('layouts/utama') ?>
 
 <?= $this->section('content') ?>
+<?php 
+$role = session()->get('role');
+$isAdmin = ($role === 'admin');
+$isEdit = ($aksi !== 'tambah');
+
+// Data dikunci jika sudah Disetujui Auditor
+$isLocked = false;
+if (!$isAdmin && $isEdit && ($program_kerja['is_approved'] ?? 0) == 1) {
+    $isLocked = true;
+}
+
+// Akses upload dokumen: Khusus Admin dan User
+$canUpload = false;
+if ($role === 'admin') {
+    $canUpload = true;
+} elseif ($role === 'user' && !$isLocked) {
+    $canUpload = true;
+}
+
+// Global permission for UI elements
+$canModify = !$isLocked || $isAdmin;
+?>
 
 <!-- Header Halaman -->
 <div class="page-header">
@@ -19,20 +41,6 @@
 
 <!-- Form -->
 <div class="form-container">
-    <?php if (session()->getFlashdata('errors')): ?>
-        <div class="alert alert-gagal">
-            <span class="alert-icon">✕</span>
-            <div>
-                <strong>Terjadi kesalahan:</strong>
-                <ul class="error-list">
-                    <?php foreach (session()->getFlashdata('errors') as $error): ?>
-                        <li><?= esc($error) ?></li>
-                    <?php endforeach; ?>
-                </ul>
-            </div>
-            <button class="alert-close" onclick="this.parentElement.remove()">×</button>
-        </div>
-    <?php endif; ?>
 
     <form 
         action="<?= $aksi === 'tambah' ? base_url('program-kerja/simpan') : base_url('program-kerja/perbarui/' . $program_kerja['id']) ?>" 
@@ -42,17 +50,25 @@
     >
         <?= csrf_field() ?>
 
-        <!-- Section: Informasi Dasar -->
-        <div class="form-section">
-            <h3 class="form-section-title">Informasi Dasar</h3>
+        <!-- Section: Perencanaan (Planning) -->
+        <div class="form-section <?= $isLocked ? 'section-locked' : '' ?>">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="form-section-title mb-0">
+                    Perencanaan PKPT 
+                    <?php if ($isLocked): ?>
+                        <i class="fas fa-lock ml-2 text-warning" title="Data sudah terkunci (Terlaksana & Disetujui Auditor)"></i>
+                    <?php endif; ?>
+                </h3>
+            </div>
             
             <!-- Tahun & Unit Kerja -->
             <div class="form-grid">
                 <div class="form-group">
                     <label for="tahun" class="form-label">Tahun <span class="required">*</span></label>
-                    <input type="number" id="tahun" name="tahun" class="form-input"
+                    <input type="number" id="tahun" name="tahun" class="form-input <?= $isLocked ? 'bg-gray-100' : '' ?>"
                         value="<?= old('tahun', $program_kerja['tahun'] ?? date('Y')) ?>" 
-                        required min="2020" max="2100" placeholder="<?= date('Y') ?>">
+                        required min="2020" max="2100" placeholder="<?= date('Y') ?>"
+                        <?= $isLocked ? 'readonly' : '' ?>>
                 </div>
                 <div class="form-group">
                     <label for="unit_kerja" class="form-label">Unit Kerja</label>
@@ -71,31 +87,29 @@
                     type="text" 
                     id="nama_kegiatan" 
                     name="nama_kegiatan" 
-                    class="form-input"
+                    class="form-input <?= $isLocked ? 'bg-gray-100' : '' ?>"
                     value="<?= old('nama_kegiatan', $program_kerja['nama_kegiatan'] ?? '') ?>"
                     required
                     maxlength="500"
                     placeholder="Masukkan nama kegiatan"
+                    <?= $isLocked ? 'readonly' : '' ?>
                 >
             </div>
 
-            <!-- Rencana Pelaksanaan -->
+            <!-- Rencana Pelaksanaan & Anggaran -->
             <div class="form-grid">
                 <div class="form-group">
                     <label for="tanggal_mulai" class="form-label">Tanggal Mulai</label>
-                    <input type="date" id="tanggal_mulai" name="tanggal_mulai" class="form-input"
-                        value="<?= old('tanggal_mulai', $program_kerja['tanggal_mulai'] ?? '') ?>">
+                    <input type="date" id="tanggal_mulai" name="tanggal_mulai" class="form-input <?= $isLocked ? 'bg-gray-100' : '' ?>"
+                        value="<?= old('tanggal_mulai', $program_kerja['tanggal_mulai'] ?? '') ?>"
+                        <?= $isLocked ? 'readonly' : '' ?>>
                 </div>
                 <div class="form-group">
                     <label for="tanggal_selesai" class="form-label">Tanggal Selesai</label>
-                    <input type="date" id="tanggal_selesai" name="tanggal_selesai" class="form-input"
-                        value="<?= old('tanggal_selesai', $program_kerja['tanggal_selesai'] ?? '') ?>">
+                    <input type="date" id="tanggal_selesai" name="tanggal_selesai" class="form-input <?= $isLocked ? 'bg-gray-100' : '' ?>"
+                        value="<?= old('tanggal_selesai', $program_kerja['tanggal_selesai'] ?? '') ?>"
+                        <?= $isLocked ? 'readonly' : '' ?>>
                 </div>
-            </div>
-
-            <!-- 2 Column Grid -->
-            <div class="form-grid">
-                <!-- Anggaran -->
                 <div class="form-group">
                     <label for="anggaran" class="form-label">
                         Anggaran <span class="required">*</span>
@@ -106,129 +120,20 @@
                             type="number" 
                             id="anggaran" 
                             name="anggaran" 
-                            class="form-input"
+                            class="form-input <?= $isLocked ? 'bg-gray-100' : '' ?>"
                             value="<?= old('anggaran', $program_kerja['anggaran'] ?? '') ?>"
                             required
                             min="0"
                             step="0.01"
                             placeholder="0"
+                            <?= $isLocked ? 'readonly' : '' ?>
                         >
                     </div>
                 </div>
-
-                <!-- Pelaksana Section -->
-                <div class="form-group-full" style="grid-column: span 2; margin-top: 10px;">
-                    <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                            <h4 style="margin: 0; color: #1e293b; font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 10px;">
-                                <i class="fas fa-users" style="color: #1a2a44;"></i> Tim Pelaksana
-                            </h4>
-                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="tambahBarisPelaksana()">
-                                <i class="fas fa-plus mr-1"></i> Tambah Pelaksana
-                            </button>
-                        </div>
-
-                        <div class="table-responsive">
-                            <table class="table" id="table-tim">
-                                <thead>
-                                    <tr>
-                                        <th style="width: 30%;">Peran</th>
-                                        <th>Nama Pelaksana</th>
-                                        <th style="width: 50px;"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="container-pelaksana">
-                                    <?php 
-                                    $roles = ['Pengendali Teknis', 'Ketua Tim', 'Anggota', 'Auditor Madya', 'Auditor Muda'];
-                                    $timData = isset($tim_pelaksana) ? $tim_pelaksana : [];
-                                    
-                                    // If empty (new form), add one default row
-                                    if (empty($timData)): ?>
-                                        <tr class="row-pelaksana">
-                                            <td>
-                                                <select name="tim_peran[]" class="form-input">
-                                                    <?php foreach ($roles as $role): ?>
-                                                        <option value="<?= $role ?>" <?= $role === 'Ketua Tim' ? 'selected' : '' ?>><?= $role ?></option>
-                                                    <?php endforeach; ?>
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <input type="text" name="tim_nama[]" class="form-input" placeholder="Nama Pelaksana" value="<?= $defaultPelaksana ?? '' ?>">
-                                            </td>
-                                            <td class="text-center">
-                                                <button type="button" class="btn-remove-row" onclick="hapusBarisPelaksana(this)" title="Hapus">
-                                                    <i class="fas fa-times"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    <?php else: ?>
-                                        <?php foreach ($timData as $tp): ?>
-                                            <tr class="row-pelaksana">
-                                                <td>
-                                                    <select name="tim_peran[]" class="form-input">
-                                                        <?php foreach ($roles as $role): ?>
-                                                            <option value="<?= $role ?>" <?= ($tp['peran'] == $role) ? 'selected' : '' ?>><?= $role ?></option>
-                                                        <?php endforeach; ?>
-                                                    </select>
-                                                </td>
-                                                <td>
-                                                    <input type="text" name="tim_nama[]" class="form-input" placeholder="Nama Pelaksana" value="<?= esc($tp['nama_pelaksana']) ?>">
-                                                </td>
-                                                <td class="text-center">
-                                                    <button type="button" class="btn-remove-row" onclick="hapusBarisPelaksana(this)" title="Hapus">
-                                                        <i class="fas fa-times"></i>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                        
-                        <style>
-                            .btn-remove-row {
-                                background: #fee2e2;
-                                color: #ef4444;
-                                border: none;
-                                width: 28px;
-                                height: 28px;
-                                border-radius: 6px;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                cursor: pointer;
-                                transition: all 0.2s;
-                            }
-                            .btn-remove-row:hover {
-                                background: #fecaca;
-                                transform: scale(1.1);
-                            }
-                            #table-tim th {
-                                background: #f1f5f9;
-                                padding: 10px;
-                                font-size: 0.8rem;
-                                color: #64748b;
-                                text-transform: uppercase;
-                                letter-spacing: 0.025em;
-                            }
-                            #table-tim td {
-                                padding: 8px 5px;
-                                vertical-align: middle;
-                            }
-                        </style>
-                    </div>
-                </div>
-                </div>
             </div>
-        </div>
 
-        <!-- Section: Rencana & Realisasi -->
-        <div class="form-section">
-            <h3 class="form-section-title">Rencana & Realisasi</h3>
-            
+            <!-- Rencana Kegiatan & Sasaran Strategis -->
             <div class="form-grid">
-                <!-- Rencana Kegiatan -->
                 <div class="form-group">
                     <label for="rencana_kegiatan" class="form-label">
                         Rencana Kegiatan
@@ -236,12 +141,145 @@
                     <textarea 
                         id="rencana_kegiatan" 
                         name="rencana_kegiatan" 
-                        class="form-textarea"
+                        class="form-textarea <?= $isLocked ? 'bg-gray-100' : '' ?>"
                         rows="4"
                         placeholder="Jelaskan rencana detail kegiatan"
+                        <?= $isLocked ? 'readonly' : '' ?>
                     ><?= old('rencana_kegiatan', $program_kerja['rencana_kegiatan'] ?? '') ?></textarea>
                 </div>
+                <div class="form-group">
+                    <label for="sasaran_strategis" class="form-label">
+                        Sasaran Strategis
+                    </label>
+                    <textarea 
+                        id="sasaran_strategis" 
+                        name="sasaran_strategis" 
+                        class="form-textarea <?= $isLocked ? 'bg-gray-100' : '' ?>"
+                        rows="4"
+                        placeholder="Jelaskan sasaran strategis kegiatan"
+                        <?= $isLocked ? 'readonly' : '' ?>
+                    ><?= old('sasaran_strategis', $program_kerja['sasaran_strategis'] ?? '') ?></textarea>
+                </div>
+            </div>
 
+            <!-- Pelaksana Section -->
+            <div class="form-group-full" style="margin-top: 10px;">
+                <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h4 style="margin: 0; color: #1e293b; font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-users" style="color: #1a2a44;"></i> Tim Pelaksana
+                        </h4>
+                        <?php if ($isAdmin || (!$isLocked && $role === 'user')): ?>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="tambahBarisPelaksana()">
+                            <i class="fas fa-plus mr-1"></i> Tambah Pelaksana
+                        </button>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table" id="table-tim">
+                            <thead>
+                                <tr>
+                                    <th style="width: 30%;">Peran</th>
+                                    <th>Nama Pelaksana</th>
+                                    <th style="width: 50px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="container-pelaksana">
+                                <?php 
+                                $roles = ['Pengendali Teknis', 'Ketua Tim', 'Anggota', 'Auditor Madya', 'Auditor Muda'];
+                                $timData = isset($tim_pelaksana) ? $tim_pelaksana : [];
+                                
+                                // If empty (new form), add one default row
+                                if (empty($timData)): ?>
+                                    <tr class="row-pelaksana">
+                                        <td>
+                                            <select name="tim_peran[]" class="form-input <?= $isLocked ? 'bg-gray-100' : '' ?>" <?= $isLocked ? 'disabled' : '' ?>>
+                                                <?php foreach ($roles as $role_choice): ?>
+                                                    <option value="<?= $role_choice ?>" <?= $role_choice === 'Ketua Tim' ? 'selected' : '' ?>><?= $role_choice ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <?php if ($isLocked): ?><input type="hidden" name="tim_peran[]" value="Ketua Tim"><?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <input type="text" name="tim_nama[]" class="form-input <?= $isLocked ? 'bg-gray-100' : '' ?>" placeholder="Nama Pelaksana" value="<?= $defaultPelaksana ?? '' ?>" <?= $isLocked ? 'readonly' : '' ?>>
+                                        </td>
+                                        <td class="text-center">
+                                            <?php if ($isAdmin): ?>
+                                            <button type="button" class="btn-remove-row" onclick="hapusBarisPelaksana(this)" title="Hapus">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($timData as $tp): ?>
+                                        <tr class="row-pelaksana">
+                                            <td>
+                                                <select name="tim_peran[]" class="form-input <?= $isLocked ? 'bg-gray-100' : '' ?>" <?= $isLocked ? 'disabled' : '' ?>>
+                                                    <?php foreach ($roles as $role_choice): ?>
+                                                        <option value="<?= $role_choice ?>" <?= ($tp['peran'] == $role_choice) ? 'selected' : '' ?>><?= $role_choice ?></option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                                <?php if ($isLocked): ?><input type="hidden" name="tim_peran[]" value="<?= esc($tp['peran']) ?>"><?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <input type="text" name="tim_nama[]" class="form-input <?= $isLocked ? 'bg-gray-100' : '' ?>" placeholder="Nama Pelaksana" value="<?= esc($tp['nama_pelaksana']) ?>" <?= $isLocked ? 'readonly' : '' ?>>
+                                            </td>
+                                            <td class="text-center">
+                                                <?php if ($isAdmin || (!$isLocked && $role === 'user')): ?>
+                                                <button type="button" class="btn-remove-row" onclick="hapusBarisPelaksana(this)" title="Hapus">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <style>
+                        .btn-remove-row {
+                            background: #fee2e2;
+                            color: #ef4444;
+                            border: none;
+                            width: 28px;
+                            height: 28px;
+                            border-radius: 6px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            cursor: pointer;
+                            transition: all 0.2s;
+                        }
+                        .btn-remove-row:hover {
+                            background: #fecaca;
+                            transform: scale(1.1);
+                        }
+                        #table-tim th {
+                            background: #f1f5f9;
+                            padding: 10px;
+                            font-size: 0.8rem;
+                            color: #64748b;
+                            text-transform: uppercase;
+                            letter-spacing: 0.025em;
+                        }
+                        #table-tim td {
+                            padding: 8px 5px;
+                            vertical-align: middle;
+                        }
+                    </style>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Pelaporan & Realisasi (Execution) -->
+        <div class="form-section">
+            <h3 class="form-section-title">Pelaporan & Realisasi</h3>
+            
+            <div class="form-grid">
                 <!-- Realisasi Kegiatan -->
                 <div class="form-group">
                     <label for="realisasi_kegiatan" class="form-label">
@@ -250,15 +288,46 @@
                     <textarea 
                         id="realisasi_kegiatan" 
                         name="realisasi_kegiatan" 
-                        class="form-textarea"
+                        class="form-textarea <?= $isLocked ? 'bg-gray-100' : '' ?>"
                         rows="4"
                         placeholder="Jelaskan realisasi kegiatan yang telah dilakukan"
+                        <?= $isLocked ? 'readonly' : '' ?>
                     ><?= old('realisasi_kegiatan', $program_kerja['realisasi_kegiatan'] ?? '') ?></textarea>
+                </div>
+
+                <!-- Status & Alasan Group -->
+                <div class="form-group">
+                    <label for="status" class="form-label">Status</label>
+                    <select id="status" name="status" class="form-input mb-3 <?= $isLocked ? 'bg-gray-100' : '' ?>" <?= $isLocked ? 'disabled' : '' ?>>
+                        <option value="">-- Pilih Status --</option>
+                        <option value="Terlaksana" <?= (old('status', $program_kerja['status'] ?? '') == 'Terlaksana') ? 'selected' : '' ?>>Terlaksana</option>
+                        <option value="Tidak Terlaksana" <?= (old('status', $program_kerja['status'] ?? '') == 'Tidak Terlaksana') ? 'selected' : '' ?>>Tidak Terlaksana</option>
+                        <option value="Penugasan Tambahan" <?= (old('status', $program_kerja['status'] ?? '') == 'Penugasan Tambahan') ? 'selected' : '' ?>>Penugasan Tambahan</option>
+                        <option value="Dibatalkan" <?= (old('status', $program_kerja['status'] ?? '') == 'Dibatalkan') ? 'selected' : '' ?>>Dibatalkan</option>
+                    </select>
+                    <?php if ($isLocked): ?><input type="hidden" name="status" value="<?= esc($program_kerja['status']) ?>"><?php endif; ?>
+
+                    <div id="group-alasan" style="display: <?= in_array(old('status', $program_kerja['status'] ?? ''), ['Tidak Terlaksana', 'Dibatalkan']) ? 'block' : 'none' ?>;">
+                        <label for="alasan_tidak_terlaksana" class="form-label">
+                            <span id="label-alasan">Alasan Tidak Terlaksana</span> <span class="required">*</span>
+                        </label>
+                        <textarea 
+                            id="alasan_tidak_terlaksana" 
+                            name="alasan_tidak_terlaksana" 
+                            class="form-textarea <?= $isLocked ? 'bg-gray-100' : '' ?>"
+                            rows="2"
+                            placeholder="Berikan alasan"
+                            <?= $isLocked ? 'readonly' : '' ?>
+                        ><?= old('alasan_tidak_terlaksana', $program_kerja['alasan_tidak_terlaksana'] ?? '') ?></textarea>
+                        <div id="error-alasan" class="text-xs text-red-500 mt-1" style="display: none;">
+                            <i class="fas fa-exclamation-circle mr-1"></i> Alasan wajib diisi.
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Realisasi Anggaran (Simple) -->
-            <div class="form-group" style="grid-column: 1 / -1;">
+            <!-- Realisasi Anggaran -->
+            <div class="form-group" style="margin-top: 15px;">
                 <label for="realisasi_anggaran" class="form-label">
                     Realisasi Anggaran
                 </label>
@@ -268,100 +337,33 @@
                         type="number" 
                         id="realisasi_anggaran" 
                         name="realisasi_anggaran" 
-                        class="form-input"
+                        class="form-input <?= $isLocked ? 'bg-gray-100' : '' ?>"
                         value="<?= old('realisasi_anggaran', $program_kerja['realisasi_anggaran'] ?? '') ?>"
                         min="0"
                         step="0.01"
                         placeholder="0"
+                        <?= $isLocked ? 'readonly' : '' ?>
                     >
                 </div>
             </div>
 
-
-        </div>
-
-        <!-- Section: Dokumen & Sasaran -->
-        <div class="form-section">
-            <h3 class="form-section-title">Dokumen & Sasaran</h3>
-            
             <!-- Dokumen Output -->
-            <div class="form-group" style="grid-column: 1 / -1;">
+            <div class="form-group" style="margin-top: 25px;">
                 <label class="form-label mb-0">Dokumen Output</label>
                 <div class="text-xs text-gray-500 mb-2">
-                    Unggah dokumen output terkait kegiatan ini. Anda dapat mengunggah berbagai format file seperti PDF, DOCX, dan lainnya.
+                    Unggah dokumen output terkait kegiatan ini.
                 </div>
                 
-                <?php if ($aksi === 'tambah'): ?>
-                    <!-- Mode Added: Button to Open Modal (Queue Mode) -->
-                    <div class="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-6 text-center">
-                        <button type="button" class="btn btn-outline-primary px-6 py-2" onclick="bukaModalDokumen()">
-                            <i class="fas fa-cloud-upload-alt mr-2"></i> Upload Dokumen
-                        </button>
-                        <!-- Vertical Preview List -->
-                        <div id="mini-doc-preview" style="display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 30px;"></div>
-                    </div>
-
-                <?php else: ?>
-                    <!-- Mode Edit: Button to Open Modal -->
-                    <div class="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-6 text-center">
-                        <button type="button" class="btn btn-outline-primary px-6 py-2" onclick="bukaModalDokumen()">
-                            <i class="fas fa-folder-open mr-2"></i> Kelola Dokumen
-                        </button>
-                        <div id="mini-doc-preview" style="display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 30px;"></div>
-                    </div>
-                <?php endif; ?>
-            </div>
-
-            <!-- Separator Line -->
-            <hr style="grid-column: 1 / -1; margin: 2rem 0; border: 0; border-top: 1px solid #e2e8f0;">
-
-            <div class="form-grid">
-                <!-- Sasaran Strategis -->
-                <div class="form-group">
-                    <label for="sasaran_strategis" class="form-label">
-                        Sasaran Strategis
-                    </label>
-                    <textarea 
-                        id="sasaran_strategis" 
-                        name="sasaran_strategis" 
-                        class="form-textarea"
-                        rows="3"
-                        placeholder="Jelaskan sasaran strategis kegiatan"
-                    ><?= old('sasaran_strategis', $program_kerja['sasaran_strategis'] ?? '') ?></textarea>
-                </div>
-
-                <!-- Status -->
-                <div class="form-group">
-                    <label for="status" class="form-label">
-                        Status
-                    </label>
-                    <select 
-                        id="status" 
-                        name="status" 
-                        class="form-input">
-                        <option value="">-- Pilih Status --</option>
-                        <option value="Terlaksana" <?= (old('status', $program_kerja['status'] ?? '') == 'Terlaksana') ? 'selected' : '' ?>>Terlaksana</option>
-                        <option value="Tidak Terlaksana" <?= (old('status', $program_kerja['status'] ?? '') == 'Tidak Terlaksana') ? 'selected' : '' ?>>Tidak Terlaksana</option>
-                        <option value="Penugasan Tambahan" <?= (old('status', $program_kerja['status'] ?? '') == 'Penugasan Tambahan') ? 'selected' : '' ?>>Penugasan Tambahan</option>
-                        <option value="Dibatalkan" <?= (old('status', $program_kerja['status'] ?? '') == 'Dibatalkan') ? 'selected' : '' ?>>Dibatalkan</option>
-                    </select>
-                </div>
-
-                <!-- Alasan Tidak Terlaksana / Dibatalkan (Conditional) -->
-                <div id="group-alasan" class="form-group" style="display: <?= in_array(old('status', $program_kerja['status'] ?? ''), ['Tidak Terlaksana', 'Dibatalkan']) ? 'block' : 'none' ?>; grid-column: 1 / -1;">
-                    <label for="alasan_tidak_terlaksana" class="form-label">
-                        <span id="label-alasan">Alasan Tidak Terlaksana</span> <span class="required">*</span>
-                    </label>
-                    <textarea 
-                        id="alasan_tidak_terlaksana" 
-                        name="alasan_tidak_terlaksana" 
-                        class="form-textarea"
-                        rows="3"
-                        placeholder="Berikan alasan mengapa kegiatan ini tidak terlaksana atau dibatalkan"
-                    ><?= old('alasan_tidak_terlaksana', $program_kerja['alasan_tidak_terlaksana'] ?? '') ?></textarea>
-                    <div id="error-alasan" class="text-xs text-red-500 mt-1" style="display: none;">
-                        <i class="fas fa-exclamation-circle mr-1"></i> Alasan wajib diisi untuk status ini.
-                    </div>
+                <div class="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    <?php if ($canUpload): ?>
+                    <button type="button" class="btn btn-outline-primary px-6 py-2" onclick="bukaModalDokumen()">
+                        <i class="fas <?= $aksi === 'tambah' ? 'fa-cloud-upload-alt' : 'fa-folder-open' ?> mr-2"></i> 
+                        <?= $aksi === 'tambah' ? 'Upload Dokumen' : 'Kelola Dokumen' ?>
+                    </button>
+                    <?php else: ?>
+                    <div class="text-muted text-sm"><i class="fas fa-lock mr-2"></i> Dokumen dikunci atau akses terbatas</div>
+                    <?php endif; ?>
+                    <div id="mini-doc-preview" style="display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 20px;"></div>
                 </div>
             </div>
         </div>
@@ -379,7 +381,7 @@
 </div>
 
 <!-- Document Management Modal (Reusable) -->
-<?= $this->include('program_kerja/partials/modal_dokumen') ?>
+<?= $this->include('program_kerja/partials/modal_dokumen', ['canUpload' => $canUpload]) ?>
 <?= $this->include('program_kerja/partials/modal_preview') ?>
 
 <?= $this->endSection() ?>
@@ -573,9 +575,9 @@
         
         if (pendingFiles.length === 0) {
             container.innerHTML = `
-                <div class="flex flex-col items-center justify-center py-6 text-gray-400 border-2 border-dashed rounded-lg">
-                    <span class="text-4xl mb-2">📂</span>
-                    <span class="text-sm">Belum ada dokumen yang akan diupload</span>
+                <div style="display: flex; align-items: center; gap: 8px; color: #475569; font-size: 0.95rem;">
+                    <span style="font-size: 1.2rem;">📂</span>
+                    <span>Belum ada dokumen yang akan diupload</span>
                 </div>
             `;
             return;
@@ -694,14 +696,26 @@
             formData.append('file', file);
             formData.append('tipe_dokumen', tipeInput.value);
             
-            const csrfToken = document.querySelector('meta[name="csrf-token"]');
-            if (csrfToken) formData.append('csrf_token', csrfToken.content);
+            // CSRF Token
+            formData.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
 
             try {
-                await fetch(`<?= base_url('program-kerja/upload-dokumen/') ?>${PROGRAM_ID}`, {
-                    method: 'POST', body: formData
+                const response = await fetch(`<?= base_url('program-kerja/upload-dokumen/') ?>${PROGRAM_ID}`, {
+                    method: 'POST', 
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
                 });
-            } catch (e) { console.error(e); }
+                
+                const result = await response.json();
+                if (!result.sukses) {
+                    alert('Gagal upload ' + file.name + ': ' + result.pesan);
+                }
+            } catch (e) { 
+                console.error(e);
+                alert('Terjadi kesalahan saat mengupload file ' + file.name);
+            }
             
             completed++;
             progressFill.style.width = Math.round((completed/files.length)*100) + '%';
@@ -762,9 +776,9 @@
 
         if (docs.length === 0) {
             container.innerHTML = `
-                <div class="flex flex-col items-center justify-center py-6 text-gray-400 border-2 border-dashed rounded-lg">
-                    <span class="text-4xl mb-2">📂</span>
-                    <span class="text-sm">Belum ada dokumen</span>
+                <div style="display: flex; align-items: center; gap: 8px; color: #475569; font-size: 0.95rem;">
+                    <span style="font-size: 1.2rem;">📂</span>
+                    <span>Belum ada dokumen yang akan diupload</span>
                 </div>
             `;
             return;
@@ -773,15 +787,17 @@
         let html = '<div class="space-y-2">';
         docs.forEach(doc => {
             const sizeKB = doc.size ? (doc.size / 1024).toFixed(1) + ' KB' : '';
-            // Use display_name (nama_asli) if available, fallback to nama_file
-            const fileName = doc.display_name || doc.nama_file;
+            // Prioritize nama_asli, then display_name, then nama_file
+            const fileName = (doc.nama_asli && doc.nama_asli.trim() !== '') ? doc.nama_asli : (doc.display_name || doc.nama_file);
+            const escapedFileName = fileName.replace(/'/g, "\\'"); // Escape single quotes for JS string literal
             
             html += `
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px;">
                 <div style="display: flex; align-items: center; gap: 12px; overflow: hidden; flex: 1;">
                     <span style="font-size: 1.5rem; flex-shrink: 0; color: #374151;">${getFileIcon(fileName)}</span>
                     <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
-                        <div style="font-size: 0.9rem; font-weight: 600; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${fileName}">${fileName}</div>
+                        <div style="font-size: 0.9rem; font-weight: 600; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;" 
+                             onclick="bukaPreview(${doc.id}, '${escapedFileName}')" title="Klik untuk preview: ${fileName}">${fileName}</div>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span style="background: #e0f2fe; padding: 2px 8px; border-radius: 4px; color: #0284c7; font-size: 0.75rem; font-weight: 500;">${doc.tipe_dokumen || 'Dokumen'}</span>
                             <span style="font-size: 0.75rem; color: #9ca3af;">${sizeKB}</span>

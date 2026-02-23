@@ -35,6 +35,9 @@ class Filters extends BaseFilters
         'pagecache'     => PageCache::class,
         'performance'   => PerformanceMetrics::class,
         'auth'          => \App\Filters\AuthFilter::class,
+        'admin'         => \App\Filters\AdminFilter::class,
+        'auditor'       => \App\Filters\AuditorFilter::class,
+        'user'          => \App\Filters\UserFilter::class,
     ];
 
     // ...
@@ -42,9 +45,9 @@ class Filters extends BaseFilters
     public array $globals = [
         'before' => [
             // 'honeypot',
-            // 'csrf',
+            'csrf',
             // 'invalidchars',
-            'auth' => ['except' => ['/', 'login', 'logout', 'auth/*']], 
+            'auth' => ['except' => ['/', 'login*', 'logout', 'auth/*']], 
         ],
         'after' => [
             // 'honeypot',

@@ -44,6 +44,107 @@ class ProgramKerja extends BaseController
         $this->validation = \Config\Services::validation();
     }
 
+    /**
+     * Helper: Validasi hak akses pengguna secara granular
+     * 
+     * @param string $action 'tambah', 'edit', 'hapus', 'upload', 'setujui'
+     * @param int|null $program_id ID program kerja (wajib untuk edit/hapus/upload/setujui)
+     * @return bool
+     */
+    private function checkAccess(string $action, $program_id = null)
+    {
+        $role = session()->get('role');
+        
+        // 1. Admin memiliki akses penuh ke semua tindakan KECUALI Approval
+        if ($role === 'admin') {
+            if (in_array($action, ['setujui', 'batalSetujui'])) {
+                 throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound("403 Forbidden: Hanya Auditor yang dapat memberikan atau membatalkan persetujuan.");
+            }
+            return true;
+        }
+
+        // 2. Tindakan 'hapus' dan 'edit' memerlukan pengecekan mendalam jika bukan Admin
+        if (in_array($action, ['edit', 'hapus'])) {
+            if ($program_id) {
+                // Cek penugasan (Kini lebih luas: Creator, Ketua Tim, atau any Tim Pelaksana)
+                if (!$this->isUserAssigned($program_id)) {
+                    $msg = ($action === 'hapus') ? "Hanya Administrator atau Tim Pelaksana yang dapat menghapus program." : "Hanya Administrator atau Tim Pelaksana yang dapat mengedit program.";
+                    throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound("403 Forbidden: " . $msg);
+                }
+
+                // Cek apakah data sudah "dikunci" (Sudah Disetujui Auditor)
+                // SEBELUMNYA: harus 'Terlaksana' && is_approved == 1
+                // SEKARANG: Sesuai request, pokoknya kalau sudah approved tidak bisa dihapus/edit
+                $program = $this->programKerjaModel->select('is_approved')->find($program_id);
+                if ($program && $program['is_approved'] == 1) {
+                    throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound("403 Forbidden: Program kerja yang sudah Disetujui Auditor tidak dapat diubah atau dihapus.");
+                }
+
+                return true;
+            }
+        }
+
+        // 3. Izinkan tindakan 'tambah' untuk semua role yang terautentikasi
+        if ($action === 'tambah') {
+            return true;
+        }
+
+        // 3.5 Upload/Kelola Dokumen: Izinkan untuk SEMUA pelaksana yang ditugaskan
+        if ($action === 'upload' && $program_id) {
+            if ($this->isUserAssigned($program_id)) {
+                return true;
+            }
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound("403 Forbidden: Anda tidak ditugaskan pada program kerja ini.");
+        }
+
+        // 4. Auditor: Khusus Tindakan 'setujui' (Review/Validasi)
+        if ($role === 'auditor') {
+            if ($action === 'setujui' || $action === 'batalSetujui') {
+                return true; 
+            }
+        }
+
+        // 5. Untuk tindakan lain yang memerlukan penugasan
+        if ($program_id) {
+            if ($this->isUserAssigned($program_id)) {
+                return true;
+            }
+            
+            // Auditor masih bisa 'setujui' meskipun tidak ditugaskan (sebagai pemeriksa)
+            if ($role === 'auditor' && $action === 'setujui') return true;
+
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound("403 Forbidden: Anda tidak ditugaskan pada program kerja ini.");
+        }
+
+        return false;
+    }
+
+    /**
+     * Cek apakah user yang login ditugaskan pada program kerja tertentu
+     */
+    private function isUserAssigned($program_id)
+    {
+        $userName = session()->get('user.pegawai_detail.nama') ?? session()->get('user.name');
+        if (!$userName) return false;
+        
+        // Ambil data program untuk cek kolom ketua_tim dan created_by
+        $program = $this->programKerjaModel->select('ketua_tim, created_by')->find($program_id);
+        if (!$program) return false;
+
+        // 1. Cek apakah Pembuat (Creator)
+        if ($program['created_by'] === $userName) return true;
+
+        // 2. Cek apakah Ketua Tim (di tabel utama)
+        if ($program['ketua_tim'] === $userName) return true;
+        
+        // 3. Cek apakah terdaftar di tim pelaksana (Peran apa saja: Ketua Tim, Anggota, Pengendali Teknis)
+        $isPelaksana = $this->pelaksanaModel->where('program_kerja_id', $program_id)
+                                             ->where('nama_pelaksana', $userName)
+                                             ->first();
+        
+        return !empty($isPelaksana);
+    }
+
     // ... (kode lain tetap sama sampai method lihat)
 
     /**
@@ -86,19 +187,27 @@ class ProgramKerja extends BaseController
         }
         $perPage = 10;
 
-        // Default to active year if no year is selected and no search keyword used
-        if ($tahun === null && !$keyword) {
+        // Default year logic: Handle null OR empty string (e.g. from GET param)
+        // If no year is explicitly selected, default to session or current year
+        if (empty($tahun) && !$keyword) {
             $tahun = session()->get('pkpt_tahun_aktif') ?? date('Y');
         }
 
         // Ambil daftar tahun available untuk dropdown
         $availableYears = $this->programKerjaModel->getYears();
 
+        $role = session()->get('role');
+        $userName = session()->get('user.pegawai_detail.nama') ?? session()->get('user.name');
+
+        // Jika Role adalah 'user', batasi data hanya jika ybs adalah yang menambahkan data tersebut
+        $onlyForUser = ($role === 'user') ? $userName : null;
+        $peranFilter = ($role === 'user') ? 'creator' : null;
+
         // Jika ada keyword pencarian atau filter tahun
         if ($keyword || $tahun) {
-            $data['program_kerja'] = $this->programKerjaModel->cariProgramKerja($keyword, $perPage, $tahun);
+            $data['program_kerja'] = $this->programKerjaModel->cariProgramKerja($keyword, $perPage, $tahun, $onlyForUser, $peranFilter);
         } else {
-            $data['program_kerja'] = $this->programKerjaModel->ambilSemuaData($perPage);
+            $data['program_kerja'] = $this->programKerjaModel->ambilSemuaData($perPage, $tahun, $onlyForUser, $peranFilter);
         }
 
         $data['pager'] = $this->programKerjaModel->pager;
@@ -118,6 +227,7 @@ class ProgramKerja extends BaseController
      */
     public function tambah()
     {
+        $this->checkAccess('tambah');
         $data = [
             'judul' => 'Tambah Program Kerja',
             'aksi' => 'tambah',
@@ -203,6 +313,7 @@ class ProgramKerja extends BaseController
      */
     public function simpan()
     {
+        $this->checkAccess('tambah');
         // Validasi input
         $rules = $this->programKerjaModel->getValidationRules();
         $status = $this->request->getPost('status');
@@ -237,6 +348,7 @@ class ProgramKerja extends BaseController
             'sasaran_strategis'  => $this->request->getPost('sasaran_strategis'),
             'status'             => $status,
             'alasan_tidak_terlaksana' => in_array($status, ['Tidak Terlaksana', 'Dibatalkan']) ? $this->request->getPost('alasan_tidak_terlaksana') : null,
+            'created_by'         => session()->get('user.pegawai_detail.nama') ?? session()->get('user.name'),
         ];
 
 
@@ -311,6 +423,7 @@ class ProgramKerja extends BaseController
      */
     public function edit($id)
     {
+        $this->checkAccess('edit', $id);
         $programKerja = $this->programKerjaModel->ambilDataById($id);
 
         if (!$programKerja) {
@@ -335,12 +448,16 @@ class ProgramKerja extends BaseController
      */
     public function perbarui($id)
     {
+        $this->checkAccess('edit', $id);
         // Cek apakah data ada
         $programKerja = $this->programKerjaModel->ambilDataById($id);
         if (!$programKerja) {
             return redirect()->to('/program-kerja')
                            ->with('gagal', 'Data program kerja tidak ditemukan');
         }
+
+        $role = session()->get('role');
+        $isAdmin = ($role === 'admin');
 
         // Validasi input
         $rules = $this->programKerjaModel->getValidationRules();
@@ -352,60 +469,75 @@ class ProgramKerja extends BaseController
             ];
         }
 
+        // Jika bukan admin, bypass validasi field rencana karena field tersebut tidak akan di-update
+        if (!$isAdmin) {
+            unset($rules['tahun']);
+            unset($rules['nama_kegiatan']);
+            unset($rules['anggaran']);
+        }
+
         if (!$this->validate($rules)) {
             return redirect()->back()
                            ->withInput()
                            ->with('errors', $this->validator->getErrors());
         }
 
-        // Ambil data dari form
+        // Ambil data dari form - Hanya include field yang diizinkan untuk diubah oleh role terkait
         $data = [
-            'tahun'              => $this->request->getPost('tahun'),
-            'nama_kegiatan'      => $this->request->getPost('nama_kegiatan'),
-            'tanggal_mulai'      => $this->request->getPost('tanggal_mulai'),
-            'tanggal_selesai'    => $this->request->getPost('tanggal_selesai'),
-            'unit_kerja'         => $this->request->getPost('unit_kerja'),
-            'rencana_kegiatan'   => $this->request->getPost('rencana_kegiatan'),
-            'anggaran'           => $this->request->getPost('anggaran'),
             'realisasi_kegiatan' => $this->request->getPost('realisasi_kegiatan'),
-            'pelaksana'          => $this->request->getPost('pelaksana'),
-            'pengendali_teknis'  => $this->request->getPost('pengendali_teknis'),
-            'ketua_tim'          => $this->request->getPost('ketua_tim'),
-            'anggota_tim'        => $this->request->getPost('anggota_tim'),
             'realisasi_anggaran' => $this->request->getPost('realisasi_anggaran') ?? 0,
-            'sasaran_strategis'  => $this->request->getPost('sasaran_strategis'),
             'status'             => $status,
             'alasan_tidak_terlaksana' => in_array($status, ['Tidak Terlaksana', 'Dibatalkan']) ? $this->request->getPost('alasan_tidak_terlaksana') : null,
         ];
 
-
+        // Field Rencana (Hanya boleh diubah oleh Admin)
+        if ($isAdmin) {
+            $data['tahun']              = $this->request->getPost('tahun');
+            $data['nama_kegiatan']      = $this->request->getPost('nama_kegiatan');
+            $data['tanggal_mulai']      = $this->request->getPost('tanggal_mulai');
+            $data['tanggal_selesai']    = $this->request->getPost('tanggal_selesai');
+            $data['unit_kerja']         = $this->request->getPost('unit_kerja');
+            $data['rencana_kegiatan']   = $this->request->getPost('rencana_kegiatan');
+            $data['anggaran']           = $this->request->getPost('anggaran');
+            $data['sasaran_strategis']  = $this->request->getPost('sasaran_strategis');
+            
+            // Legacy team fields
+            $data['pelaksana']          = $this->request->getPost('pelaksana');
+            $data['pengendali_teknis']  = $this->request->getPost('pengendali_teknis');
+            $data['ketua_tim']          = $this->request->getPost('ketua_tim');
+            $data['anggota_tim']        = $this->request->getPost('anggota_tim');
+        }
 
         // Update ke database
         if ($this->programKerjaModel->update($id, $data)) {
 
-            // Update Team Members (Dynamic)
-            // Simple approach: Delete existing and re-insert
-            $this->pelaksanaModel->where('program_kerja_id', $id)->delete();
-            
-            $timNama = $this->request->getPost('tim_nama');
-            $timPeran = $this->request->getPost('tim_peran');
+            // Update Team Members (HANYA untuk Admin)
+            if ($isAdmin) {
+                // Simple approach: Delete existing and re-insert
+                $this->pelaksanaModel->where('program_kerja_id', $id)->delete();
+                
+                $timNama = $this->request->getPost('tim_nama');
+                $timPeran = $this->request->getPost('tim_peran');
 
-            if ($timNama && is_array($timNama)) {
-                foreach ($timNama as $idx => $nama) {
-                    if (!empty(trim($nama))) {
-                        $this->pelaksanaModel->insert([
-                            'program_kerja_id' => $id,
-                            'nama_pelaksana'   => trim($nama),
-                            'peran'            => $timPeran[$idx] ?? 'Anggota'
-                        ]);
+                if ($timNama && is_array($timNama)) {
+                    foreach ($timNama as $idx => $nama) {
+                        if (!empty(trim($nama))) {
+                            $this->pelaksanaModel->insert([
+                                'program_kerja_id' => $id,
+                                'nama_pelaksana'   => trim($nama),
+                                'peran'            => $timPeran[$idx] ?? 'Anggota'
+                            ]);
+                        }
                     }
                 }
             }
 
-            // Handle multi-upload dokumen baru
+            // Handle multi-upload dokumen baru (Izinkan admin & auditor/user ditugaskan)
             $files = $this->request->getFiles();
             if ($files && isset($files['dokumen'])) {
-                foreach ($files['dokumen'] as $file) {
+                $tipeDokumenInput = $this->request->getPost('tipe_dokumen');
+                
+                foreach ($files['dokumen'] as $idx => $file) {
                     if ($file->isValid() && !$file->hasMoved()) {
                         $targetDir = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'dokumen_output';
                         if (!is_dir($targetDir)) {
@@ -414,11 +546,19 @@ class ProgramKerja extends BaseController
 
                         $namaFile = $file->getRandomName();
                         if ($file->move($targetDir, $namaFile)) {
+                            // Determine type
+                            $tipe = 'Lampiran';
+                            if (is_array($tipeDokumenInput) && isset($tipeDokumenInput[$idx])) {
+                                $tipe = $tipeDokumenInput[$idx];
+                            } elseif (is_string($tipeDokumenInput) && !empty($tipeDokumenInput)) {
+                                $tipe = $tipeDokumenInput;
+                            }
+
                             $this->dokumenModel->insert([
                                 'program_kerja_id' => $id,
                                 'nama_file'        => $namaFile,
                                 'nama_asli'        => $file->getClientName(),
-                                'tipe_dokumen'     => 'Lampiran'
+                                'tipe_dokumen'     => $tipe
                             ]);
                         }
                     }
@@ -442,6 +582,7 @@ class ProgramKerja extends BaseController
      */
     public function hapus($id)
     {
+        $this->checkAccess('hapus', $id);
         $programKerja = $this->programKerjaModel->ambilDataById($id);
 
         if (!$programKerja) {
@@ -489,11 +630,23 @@ class ProgramKerja extends BaseController
         $path = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'dokumen_output' . DIRECTORY_SEPARATOR . $dokumen['nama_file'];
 
         if (!file_exists($path)) {
-            return redirect()->to('/program-kerja')
-                           ->with('gagal', 'File fisik tidak ditemukan di server. Silakan hubungi administrator.');
+            // Coba cari jika nama_file ternyata nama asli (untuk data lama)
+            $pathAlt = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'dokumen_output' . DIRECTORY_SEPARATOR . $dokumen['nama_asli'];
+            if (file_exists($pathAlt)) {
+                $path = $pathAlt;
+            } else {
+                return redirect()->to('/program-kerja')
+                               ->with('gagal', 'File fisik tidak ditemukan di server.');
+            }
         }
 
-        return $this->response->download($path, null)->setFileName($dokumen['nama_asli'] ?? $dokumen['nama_file']);
+        // Set filename for download
+        $downloadName = (!empty($dokumen['nama_asli'])) ? $dokumen['nama_asli'] : $dokumen['nama_file'];
+        
+        // Clean filename for safety
+        $downloadName = str_replace(['"', "'", '*', '/', '\\', ':', '?', '|'], '_', $downloadName);
+        
+        return $this->response->download($path, null)->setFileName($downloadName);
     }
 
     /**
@@ -547,8 +700,12 @@ class ProgramKerja extends BaseController
             $path = WRITEPATH . 'uploads/dokumen_output/' . $doc['nama_file'];
             // Cek fisik file untuk ukuran
             $doc['size'] = file_exists($path) ? filesize($path) : 0;
-            // Gunakan nama asli jika ada, jika tidak gunakan nama sistem
-            $doc['display_name'] = !empty($doc['nama_asli']) ? $doc['nama_asli'] : $doc['nama_file'];
+            
+            // Prioritaskan Nama Asli.
+            $displayName = (!empty($doc['nama_asli']) && trim($doc['nama_asli']) !== '') ? $doc['nama_asli'] : $doc['nama_file'];
+            
+            // Simpan ke display_name tanpa basename yang berisiko
+            $doc['display_name'] = $displayName;
             $data[] = $doc;
         }
         
@@ -566,6 +723,7 @@ class ProgramKerja extends BaseController
      */
     public function uploadDokumen($id)
     {
+        $this->checkAccess('upload', $id);
         $programKerja = $this->programKerjaModel->ambilDataById($id);
         if (!$programKerja) {
             return $this->response->setJSON(['sukses' => false, 'pesan' => 'Program kerja tidak ditemukan']);
@@ -574,8 +732,11 @@ class ProgramKerja extends BaseController
         $file = $this->request->getFile('file');
         $tipe = $this->request->getPost('tipe_dokumen');
 
-        if (!$file->isValid()) {
-            return $this->response->setJSON(['sukses' => false, 'pesan' => $file->getErrorString()]);
+        if (!$file || !$file->isValid()) {
+            return $this->response->setJSON([
+                'sukses' => false, 
+                'pesan' => $file ? $file->getErrorString() : 'File tidak ditemukan dalam request'
+            ]);
         }
 
         $targetDir = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'dokumen_output';
@@ -585,12 +746,27 @@ class ProgramKerja extends BaseController
             mkdir($targetDir, 0777, true);
         }
 
-        $namaFile = $file->getRandomName();
-        if ($file->move($targetDir, $namaFile)) {
+        // Gunakan nama asli yang dibersihkan + prefix unik agar tidak bentrok
+        // "jangan menggunakan angka" (maksudnya jangan random number murni, tapi nama deskriptif)
+        $namaAsli = $file->getClientName();
+        $ext = $file->getClientExtension();
+        $baseName = pathinfo($namaAsli, PATHINFO_FILENAME);
+        
+        // Bersihkan nama dari karakter aneh menggunakan helper url_title (load jika perlu)
+        helper('url');
+        $cleanBaseName = url_title($baseName, '_', true);
+        if (empty($cleanBaseName)) {
+            $cleanBaseName = 'dokumen_' . time();
+        }
+        
+        // Format: NAMA_ASLI_TIMESTAMP.EXT
+        $namaBaru = $cleanBaseName . '_' . time() . '.' . $ext;
+
+        if ($file->move($targetDir, $namaBaru)) {
             $this->dokumenModel->insert([
                 'program_kerja_id' => $id,
-                'nama_file'       => $namaFile,
-                'nama_asli'       => $file->getClientName(),
+                'nama_file'       => $namaBaru,
+                'nama_asli'       => $namaAsli,
                 'tipe_dokumen'    => $tipe
             ]);
 
@@ -609,6 +785,13 @@ class ProgramKerja extends BaseController
      */
     public function hapusDokumen($id)
     {
+        // $id di sini adalah ID Dokumen, kita perlu ID Program Kerjanya
+        $dokumen = $this->dokumenModel->find($id);
+        if ($dokumen) {
+            $this->checkAccess('upload', $dokumen['program_kerja_id']);
+        } else {
+            $this->checkAccess('upload'); // Akan melempar error jika bukan admin
+        }
         $dokumen = $this->dokumenModel->find($id);
         if (!$dokumen) {
             return $this->response->setJSON(['sukses' => false, 'pesan' => 'Dokumen tidak ditemukan']);
@@ -642,10 +825,20 @@ class ProgramKerja extends BaseController
         $path = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'dokumen_output' . DIRECTORY_SEPARATOR . $dokumen['nama_file'];
 
         if (!file_exists($path)) {
-            return redirect()->back()->with('gagal', 'File fisik tidak ditemukan di server.');
+            // Cek data lama jika nama_file belum sinkron
+            $pathAlt = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'dokumen_output' . DIRECTORY_SEPARATOR . $dokumen['nama_asli'];
+            if (file_exists($pathAlt)) {
+                $path = $pathAlt;
+            } else {
+                return redirect()->back()->with('gagal', 'File fisik tidak ditemukan.');
+            }
         }
 
-        return $this->response->download($path, null)->setFileName($dokumen['nama_asli'] ?? $dokumen['nama_file']);
+        $downloadName = (!empty($dokumen['nama_asli'])) ? $dokumen['nama_asli'] : $dokumen['nama_file'];
+        // Clean filename for safety
+        $downloadName = str_replace(['"', "'", '*', '/', '\\', ':', '?', '|'], '_', $downloadName);
+        
+        return $this->response->download($path, null)->setFileName($downloadName);
     }
 
     /**
@@ -706,6 +899,12 @@ class ProgramKerja extends BaseController
     {
         $keyword = $this->request->getGet('cari');
         $tahun = $this->request->getGet('tahun');
+        
+        // Match logic with index() - Handle null or empty string
+        // If year is not explicitly chosen, default to session/active year
+        if (empty($tahun) && !$keyword) {
+            $tahun = session()->get('pkpt_tahun_aktif') ?? date('Y');
+        }
 
         // Ambil query dari model untuk mendapatkan dokumen_output juga
         $db = \Config\Database::connect();
@@ -715,21 +914,43 @@ class ProgramKerja extends BaseController
             ->orderBy('created_at', 'DESC')
             ->getCompiledSelect();
 
+        // Use subquery for team members as well to stay updated with newest data
+        $subQueryTeam = $db->table('program_kerja_pelaksana')
+            ->select("GROUP_CONCAT(CONCAT(peran, ':', nama_pelaksana) SEPARATOR '|')")
+            ->where('program_kerja_id = program_kerja.id')
+            ->getCompiledSelect();
+
         $query = $this->programKerjaModel->select('program_kerja.*')
-                      ->select("($subQuery) as dokumen_output");
+                      ->select("($subQuery) as dokumen_output")
+                      ->select("($subQueryTeam) as tim_pelaksana");
         
-        if ($keyword || $tahun) {
-            if ($keyword) {
-                $query->groupStart()
-                        ->like('nama_kegiatan', $keyword)
-                        ->orLike('pelaksana', $keyword)
-                        ->orLike('unit_kerja', $keyword)
-                        ->orLike('status', $keyword)
-                      ->groupEnd();
-            }
-            if ($tahun) {
-                $query->where('tahun', $tahun);
-            }
+        // Apply Filters
+        if ($keyword) {
+            $query->groupStart()
+                    ->like('nama_kegiatan', $keyword)
+                    ->orLike('pelaksana', $keyword)
+                    ->orLike('unit_kerja', $keyword)
+                    ->orLike('status', $keyword)
+                  ->groupEnd();
+        }
+        
+        if ($tahun) {
+            $query->where('tahun', $tahun);
+        }
+
+        // Apply Role-based filtering (Sync with index() visibility)
+        $role = session()->get('role');
+        $userName = session()->get('user.pegawai_detail.nama') ?? session()->get('user.name');
+        if ($role === 'user') {
+            $query->groupStart()
+                    ->where('program_kerja.created_by', $userName)
+                    ->orWhere('program_kerja.ketua_tim', $userName)
+                    ->orWhereIn('program_kerja.id', function($builder) use ($userName) {
+                        return $builder->select('program_kerja_id')
+                                ->from('program_kerja_pelaksana')
+                                ->where('nama_pelaksana', $userName);
+                    })
+                  ->groupEnd();
         }
 
         $data = $query->orderBy('created_at', 'DESC')->findAll();
@@ -743,7 +964,7 @@ class ProgramKerja extends BaseController
         $headers = [
             'No', 'Tahun', 'Nama Kegiatan', 'Tanggal Mulai', 'Tanggal Selesai', 
             'Unit Kerja', 'Rencana Kegiatan', 'Anggaran', 'Realisasi Kegiatan', 
-            'Pelaksana', 'Dokumen', 'Realisasi Anggaran', 'Sasaran Strategis', 'Status', 'Keterangan'
+            'Pelaksana', 'Dokumen', 'Realisasi Anggaran', 'Sasaran Strategis', 'Status', 'Keterangan', 'Catatan Auditor'
         ];
 
         // Fill headers
@@ -773,7 +994,7 @@ class ProgramKerja extends BaseController
                 ],
             ],
         ];
-        $sheet->getStyle('A1:O1')->applyFromArray($headerStyle);
+        $sheet->getStyle('A1:P1')->applyFromArray($headerStyle);
         $sheet->getRowDimension(1)->setRowHeight(25);
 
         // Data rows
@@ -805,15 +1026,38 @@ class ProgramKerja extends BaseController
             $sheet->setCellValue('G' . $rowIdx, $row['rencana_kegiatan']);
             $sheet->setCellValue('H' . $rowIdx, $row['anggaran']);
             $sheet->setCellValue('I' . $rowIdx, $row['realisasi_kegiatan']);
-            $pelaksanaParts = [];
-            if (!empty($row['pengendali_teknis'])) $pelaksanaParts[] = "PT: " . $row['pengendali_teknis'];
             
-            $ketuaText = $row['ketua_tim'] ?: $row['pelaksana'];
-            if (!empty($ketuaText)) $pelaksanaParts[] = "KT: " . $ketuaText;
-            
-            if (!empty($row['anggota_tim'])) $pelaksanaParts[] = "Anggota: " . str_replace(["\r\n", "\n", "\r"], ", ", $row['anggota_tim']);
-            
-            $pelaksanaText = implode("\n", $pelaksanaParts) ?: '-';
+            // Process Pelaksana (Prioritize new team structure from tim_pelaksana)
+            $pelaksanaText = '-';
+            if (!empty($row['tim_pelaksana'])) {
+                $pelaksanaParts = [];
+                $teamList = explode('|', $row['tim_pelaksana']);
+                foreach ($teamList as $tStr) {
+                    $tParts = explode(':', $tStr);
+                    if (count($tParts) >= 2) {
+                        $roleP = $tParts[0];
+                        $nameP = $tParts[1];
+                        
+                        $prefix = 'AGT';
+                        switch($roleP) {
+                            case 'Pengendali Teknis': $prefix = 'PT'; break;
+                            case 'Ketua Tim': $prefix = 'KT'; break;
+                            case 'Auditor Madya': $prefix = 'MADYA'; break;
+                            case 'Auditor Muda': $prefix = 'MUDA'; break;
+                        }
+                        $pelaksanaParts[] = "$prefix: $nameP";
+                    }
+                }
+                $pelaksanaText = implode("\n", $pelaksanaParts);
+            } else {
+                // Fallback to legacy columns
+                $pelaksanaParts = [];
+                if (!empty($row['pengendali_teknis'])) $pelaksanaParts[] = "PT: " . $row['pengendali_teknis'];
+                $ketuaText = $row['ketua_tim'] ?: $row['pelaksana'];
+                if (!empty($ketuaText)) $pelaksanaParts[] = "KT: " . $ketuaText;
+                if (!empty($row['anggota_tim'])) $pelaksanaParts[] = "Anggota: " . str_replace(["\r\n", "\n", "\r"], ", ", $row['anggota_tim']);
+                $pelaksanaText = implode("\n", $pelaksanaParts) ?: '-';
+            }
 
             $sheet->setCellValue('J' . $rowIdx, $pelaksanaText);
             $sheet->getStyle('J' . $rowIdx)->getAlignment()->setWrapText(true);
@@ -823,15 +1067,16 @@ class ProgramKerja extends BaseController
             $sheet->setCellValue('M' . $rowIdx, $row['sasaran_strategis']);
             $sheet->setCellValue('N' . $rowIdx, $row['status']);
             $sheet->setCellValue('O' . $rowIdx, $row['alasan_tidak_terlaksana']);
+            $sheet->setCellValue('P' . $rowIdx, $row['catatan_auditor']);
 
             // Style for data cell (borders)
-            $sheet->getStyle('A' . $rowIdx . ':O' . $rowIdx)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+            $sheet->getStyle('A' . $rowIdx . ':P' . $rowIdx)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
             $rowIdx++;
         }
 
         // Auto column width & text wrapping
-        foreach (range('A', 'O') as $colId) {
-            if ($colId !== 'K') { // Don't auto-size documents column to avoid extreme width
+        foreach (range('A', 'P') as $colId) {
+            if ($colId !== 'K' && $colId !== 'P') { // Don't auto-size documents and auditor notes column to avoid extreme width
                 $sheet->getColumnDimension($colId)->setAutoSize(true);
             } else {
                 $sheet->getColumnDimension($colId)->setWidth(30);
@@ -849,12 +1094,13 @@ class ProgramKerja extends BaseController
         // Center No and Tahun
         $sheet->getStyle('A2:B' . ($rowIdx - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         
-        // Wrap text for Keterangan
-        $sheet->getStyle('O2:O' . ($rowIdx - 1))->getAlignment()->setWrapText(true);
+        // Wrap text for Keterangan and Catatan Auditor
+        $sheet->getStyle('O2:P' . ($rowIdx - 1))->getAlignment()->setWrapText(true);
         $sheet->getColumnDimension('O')->setWidth(30);
+        $sheet->getColumnDimension('P')->setWidth(40); // Slightly wider for notes
 
         // Header Filtering
-        $sheet->setAutoFilter('A1:O1');
+        $sheet->setAutoFilter('A1:P1');
 
         // Redirect output to a client’s web browser (Xlsx)
         $yearPrefix = $tahun ? "Tahun_{$tahun}_" : "";
@@ -867,4 +1113,77 @@ class ProgramKerja extends BaseController
         $writer->save('php://output');
         exit();
     }
+
+    /**
+     * Proses Approval / Persetujuan oleh Auditor
+     * 
+     * @param int $id ID program kerja
+     * @return ResponseInterface
+     */
+    public function setujui($id)
+    {
+        $this->checkAccess('setujui', $id);
+
+        $program = $this->programKerjaModel->find($id);
+        if (!$program) {
+            return redirect()->back()->with('gagal', 'Data tidak ditemukan');
+        }
+
+        // Syarat: Status harus 'Terlaksana'
+        if ($program['status'] !== 'Terlaksana') {
+            return redirect()->back()->with('gagal', 'Persetujuan hanya bisa dilakukan jika program kerja telah selesai/terlaksana');
+        }
+
+        $userName = session()->get('user.pegawai_detail.nama') ?? session()->get('user.name');
+        $catatan = $this->request->getPost('catatan_auditor');
+
+        $data = [
+            'is_approved' => 1,
+            'approved_by' => $userName,
+            'approved_at' => date('Y-m-d H:i:s'),
+            'catatan_auditor' => $catatan
+        ];
+
+        if ($this->programKerjaModel->update($id, $data)) {
+            if ($this->request->isAJAX()) {
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Program kerja berhasil disetujui',
+                    'approved_by' => $data['approved_by'],
+                    'approved_at' => date('d/m/Y', strtotime($data['approved_at'])),
+                    'catatan' => $data['catatan_auditor'] ?? ''
+                ]);
+            }
+            return redirect()->back()->with('sukses', 'Program kerja berhasil disetujui');
+        } else {
+            if ($this->request->isAJAX()) {
+                return $this->response->setJSON(['success' => false, 'message' => 'Gagal menyetujui program kerja']);
+            }
+            return redirect()->back()->with('gagal', 'Gagal menyetujui program kerja');
+        }
+    }
+
+    /**
+     * Membatalkan Approval (Opsional, mungkin dibutuhkan Admin/Auditor)
+     */
+    public function batalSetujui($id)
+    {
+        $role = session()->get('role');
+        if ($role !== 'auditor') {
+            return redirect()->back()->with('gagal', 'Hanya Auditor yang dapat membatalkan persetujuan');
+        }
+
+        $data = [
+            'is_approved' => 0,
+            'approved_by' => null,
+            'approved_at' => null
+        ];
+
+        if ($this->programKerjaModel->update($id, $data)) {
+            return redirect()->back()->with('sukses', 'Persetujuan dibatalkan');
+        } else {
+            return redirect()->back()->with('gagal', 'Gagal membatalkan persetujuan');
+        }
+    }
 }
+

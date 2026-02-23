@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $judul ?? 'PKPT - Kemenko PMK' ?></title>
+    <?= csrf_meta() ?>
     
     <!-- CSS -->
     <link rel="stylesheet" href="<?= base_url('assets/css/program-kerja.css?v=' . time()) ?>">
@@ -27,6 +28,39 @@
     </style>
 </head>
 <body>
+    <!-- Global Toast Notifications -->
+    <div class="toast-container">
+        <?php if (session()->getFlashdata('sukses')): ?>
+            <div class="alert alert-sukses">
+                <span class="alert-icon">✓</span>
+                <span class="alert-text"><?= session()->getFlashdata('sukses') ?></span>
+                <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+            </div>
+        <?php endif; ?>
+
+        <?php if (session()->getFlashdata('gagal') || session()->getFlashdata('error')): ?>
+            <div class="alert alert-gagal">
+                <span class="alert-icon">✕</span>
+                <span class="alert-text"><?= session()->getFlashdata('gagal') ?? session()->getFlashdata('error') ?></span>
+                <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+            </div>
+        <?php endif; ?>
+
+        <?php if (session()->getFlashdata('errors')): ?>
+            <div class="alert alert-gagal">
+                <span class="alert-icon">✕</span>
+                <div>
+                    <strong>Terjadi kesalahan:</strong>
+                    <ul class="error-list" style="margin: 5px 0 0 15px; font-size: 0.85rem;">
+                        <?php foreach (session()->getFlashdata('errors') as $error): ?>
+                            <li><?= esc($error) ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+                <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+            </div>
+        <?php endif; ?>
+    </div>
     <!-- Header -->
     <header class="header">
         <div class="container">
@@ -60,9 +94,43 @@
                     </a>
                 </li>
                 <?= view_cell('App\Cells\NotificationCell::show') ?>
+                <li class="nav-item user-info-item" style="display: flex; align-items: center; padding: 0 15px; color: rgba(255, 255, 255, 0.9); border-left: 1px solid rgba(255,255,255,0.2); margin-left: 5px; height: 100%;">
+                    <div style="display: flex; align-items: center; gap: 12px; padding: 5px 10px; border-radius: 8px; transition: background 0.2s;">
+                        <div style="text-align: right;">
+                            <div style="font-weight: 700; font-size: 0.85rem; line-height: 1.1; color: #ffffff; white-space: nowrap;">
+                                <?php 
+                                    $username = session()->get('user.username_ldap');
+                                    $personalName = session()->get('user.pegawai_detail.nama');
+
+                                    if ($personalName): 
+                                        echo $personalName;
+                                    elseif ($username === 'admin'): 
+                                        echo 'ADMINISTRATOR';
+                                    elseif ($username === 'auditor'): 
+                                        echo 'AUDITOR';
+                                    else: 
+                                        echo session()->get('user.name') ?? 'User';
+                                    endif;
+                                ?>
+                            </div>
+                            <div style="font-size: 0.65rem; color: #fac70b; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 3px; opacity: 0.9;">
+                                <?= session()->get('role') ?>
+                            </div>
+                        </div>
+                        <div style="width: 32px; height: 32px; background: rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.1);">
+                            <?php 
+                                $role = session()->get('role');
+                                $icon = 'fa-user';
+                                if ($role === 'admin') $icon = 'fa-user-shield';
+                                elseif ($role === 'auditor') $icon = 'fa-user-check';
+                            ?>
+                            <i class="fas <?= $icon ?>" style="font-size: 1rem; color: rgba(255, 255, 255, 0.8);"></i>
+                        </div>
+                    </div>
+                </li>
                 <li class="nav-item">
-                    <a href="<?= base_url('/logout') ?>" class="nav-link">
-                        <i class="fas fa-sign-out-alt"></i> Logout
+                    <a href="<?= base_url('/logout') ?>" class="nav-link logout-link" style="padding: 15px 20px; color: #ff6b6b; font-size: 1.2rem;" title="Logout">
+                        <i class="fas fa-power-off"></i>
                     </a>
                 </li>
             </ul>
@@ -85,8 +153,15 @@
                 <button id="closeAnnouncement" class="btn-close-popover">&times;</button>
             </div>
             <div class="popover-body text-center">
-                <p>Selamat datang di Aplikasi PKPT.</p>
-                <p>Terdapat beberapa kegiatan yang akan segera dilaksanakan. Mohon cek kembali kesiapan data.</p>
+                <?php 
+                $userRole = session()->get('role');
+                if ($userRole === 'admin'): ?>
+                    <p>Selamat datang, <strong>Administrator</strong>. Pantau konsistensi data antara Rencana dan Realisasi pada Dashboard dan pastikan seluruh pelaporan unit kerja berjalan sesuai jadwal.</p>
+                <?php elseif ($userRole === 'auditor'): ?>
+                    <p>Selamat datang, <strong>Auditor</strong>. Mohon segera melakukan review pada kegiatan dengan status 'Terlaksana'. Kecepatan validasi Anda menentukan keakuratan capaian kinerja kementerian.</p>
+                <?php else: ?>
+                    <p>Selamat datang, <strong>Pelaksana</strong>. Mohon segera mengunggah dokumen bukti realisasi untuk kegiatan yang telah selesai. Pastikan data realisasi anggaran akurat dan sesuai kuitansi.</p>
+                <?php endif; ?>
                 
                 <div class="popover-action">
                     <a href="<?= base_url('program-kerja') ?>" class="btn-check-data-small">
@@ -148,8 +223,28 @@
             </div>
             <div class="modal-body-policy">
                 <div class="policy-alert-box">
-                    <p>Seluruh item dalam daftar ini merupakan <strong>Target Minimal (H-min)</strong> yang telah ditetapkan dan disetujui oleh Pimpinan. Mengingat sifatnya sebagai <strong>Komitmen Baku</strong>, data ini tidak diperkenankan untuk diubah atau dihapus secara sepihak.</p>
-                    <p>Segala bentuk penyesuaian wajib melalui <strong>Mekanisme Revisi Resmi</strong> dengan otorisasi dari <strong>Inspektur</strong> demi menjaga integritas serta akurasi pelaporan kinerja tahunan.</p>
+                    <?php 
+                    $userRole = session()->get('role');
+                    if ($userRole === 'admin'): ?>
+                        <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 2px dashed #e2e8f0; color: #1e293b;">
+                            <span style="background: #1e293b; color: #fff; padding: 2px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; margin-bottom: 10px; display: inline-block;">HAK AKSES: ADMINISTRATOR</span>
+                            <p>Sebagai <strong>Administrator</strong>, Anda bertanggung jawab atas pengawasan integritas data seluruh kementerian. Pastikan target minimal pimpinan tetap terjaga dan kelola setiap usulan revisi dengan ketat sesuai regulasi yang berlaku.</p>
+                        </div>
+                    <?php elseif ($userRole === 'auditor'): ?>
+                        <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 2px dashed #e2e8f0; color: #1e293b;">
+                            <span style="background: #1e293b; color: #fff; padding: 2px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; margin-bottom: 10px; display: inline-block;">HAK AKSES: AUDITOR / PEMERIKSA</span>
+                            <p>Sebagai <strong>Auditor</strong>, tugas Anda adalah melakukan <strong>Review & Validasi</strong>. Berikan persetujuan hanya pada kegiatan yang telah memenuhi standar kualitas dan selaras dengan <strong>Komitmen Baku</strong> yang telah ditetapkan pimpinan.</p>
+                        </div>
+                    <?php else: ?>
+                        <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 2px dashed #e2e8f0; color: #1e293b;">
+                            <span style="background: #1e293b; color: #fff; padding: 2px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; margin-bottom: 10px; display: inline-block;">HAK AKSES: PELAKSANA</span>
+                            <p>Sebagai <strong>Pelaksana</strong>, Anda wajib melaporkan realisasi tepat waktu. Data rencana merupakan <strong>Target Minimal</strong> yang tidak diperkenankan diubah secara sepihak tanpa melalui mekanisme <strong>Mekanisme Revisi Resmi</strong>.</p>
+                        </div>
+                    <?php endif; ?>
+
+                    <p style="font-size: 0.9rem; color: #64748b; font-style: italic; margin-top: 10px;">
+                        <i class="fas fa-info-circle mr-1"></i> Seluruh penyesuaian data wajib menyertakan otorisasi dari <strong>Inspektur</strong> demi menjaga akurasi pelaporan kinerja tahunan.
+                    </p>
                 </div>
             </div>
             <div class="modal-footer-policy">

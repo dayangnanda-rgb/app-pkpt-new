@@ -8,13 +8,18 @@
     <div class="stats-container-modern">
         <div class="stat-card-modern card-total-modern">
             <div class="stat-icon-modern">
-                <i class="fas fa-list-ul"></i>
+                <i class="fas fa-check-circle"></i>
             </div>
             <div class="stat-info-modern">
-                <h3 id="statTotalProgram"><?= number_format($statistik['total_program']) ?></h3>
-                <p style="margin: 0;">TOTAL PROGRAM</p>
-                <div style="font-size: 0.65rem; color: #94a3b8; font-style: italic; margin-bottom: 5px;">Berdasarkan kegiatan PKPT</div>
-                <div class="stat-period-label period-label">Tahunan <?= $tahun_aktif ?></div>
+                <div style="display: flex; align-items: baseline; gap: 4px;">
+                    <h3 id="statPersentaseKinerjaMain"><?= number_format($statistik['persentase_pelaksanaan'], 0) ?></h3>
+                    <span class="unit-percent" style="font-size: 1.2rem; color: #10b981; font-weight: 800;">%</span>
+                </div>
+                <p style="margin: 0; font-weight: 800; letter-spacing: 0.5px;">CAPAIAN KINERJA</p>
+                <div style="font-size: 0.75rem; color: rgba(255,255,255,0.8); margin-top: 5px; font-weight: 600;">
+                    <span id="statTerlaksanaCount"><?= number_format($statistik['total_terlaksana']) ?></span> dari <span id="statTotalProgram"><?= number_format($statistik['total_program']) ?></span> Selesai
+                </div>
+                <div class="stat-period-label period-label" style="margin-top: 2px;">Tahunan <?= $tahun_aktif ?></div>
             </div>
             <div class="card-accent-line"></div>
         </div>

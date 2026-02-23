@@ -28,15 +28,43 @@ class Dashboard extends BaseController
      */
     public function index()
     {
+        $role = session()->get('role');
+        if ($role) {
+            return redirect()->to("/dashboard/$role");
+        }
+        return $this->showDashboard();
+    }
+
+    public function admin()
+    {
+        return $this->showDashboard();
+    }
+
+    public function auditor()
+    {
+        return $this->showDashboard();
+    }
+
+    public function user()
+    {
+        return $this->showDashboard();
+    }
+
+    private function showDashboard()
+    {
         $year = $this->request->getGet('year');
         if (!$year) {
             $year = session()->get('pkpt_tahun_aktif') ?? date('Y');
         }
         
+        $role = session()->get('role');
+        $userName = session()->get('user.pegawai_detail.nama') ?? session()->get('user.name');
+        
         $data['judul'] = 'Dashboard PKPT';
         $data['statistik'] = $this->programKerjaModel->ambilStatistik($year);
         $data['available_years'] = $this->programKerjaModel->getYears();
         $data['tahun_aktif'] = $year;
+        $data['role'] = $role;
         
         return view('dashboard/dashboard', $data);
     }

@@ -2,7 +2,7 @@
 <div id="modal-preview" class="modal-overlay">
     <div class="modal-container modal-lg" style="max-width: 900px; height: 90vh; display: flex; flex-direction: column;">
         <div class="modal-header" style="flex-shrink: 0;">
-            <h3 class="modal-title" id="preview-title">Preview Dokumen</h3>
+            <h3 class="modal-title" id="preview-title" style="font-size: 1rem; font-weight: 600; color: #1e293b; max-width: 80%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Preview Dokumen</h3>
             <button type="button" class="modal-close" onclick="tutupPreview()">×</button>
         </div>
         
@@ -31,8 +31,9 @@
             <div id="preview-fallback-message" class="text-sm text-gray-500" style="display: none;">
                 <i class="fas fa-info-circle mr-1"></i> Jika preview tidak muncul, silakan unduh langsung.
             </div>
-            <a id="btn-download-processed" href="#" class="btn btn-primary" target="_blank" download>
-                <i class="fas fa-download mr-2"></i> Download File
+            <a id="btn-download-processed" href="javascript:void(0)" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+                <i class="fas fa-download"></i>
+                <span>Download File</span>
             </a>
         </div>
     </div>
@@ -76,11 +77,18 @@
         jsContainer.style.display = 'none';
         
         // Set info
-        title.textContent = name || 'Preview Dokumen';
+        // Set info - strip extension for a cleaner title if you want, but user asked for original name
+        title.textContent = `Preview: ${name}`;
+        title.title = name; // Full name on hover
+        
         const previewUrl = `<?= base_url('program-kerja/preview/') ?>${id}`;
         const downloadUrl = `<?= base_url('program-kerja/download/') ?>${id}`;
         
+        // Link behavior
         downloadBtn.href = downloadUrl;
+        downloadBtn.setAttribute('download', name);
+        downloadBtn.target = '_blank';
+        downloadBtn.onclick = null; // Reset any previous handler
         
         // Show modal
         modal.classList.add('show');
